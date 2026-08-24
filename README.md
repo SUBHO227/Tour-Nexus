@@ -1,59 +1,51 @@
-# Tour Nexus 🌍
+# 🌍 TourNexus
 
-### Smart Tourism Destination Intelligence Platform
+## Connecting Tourism. Predicting Impact. Adapting Journeys.
 
-Tour Nexus is a smart tourism platform designed to help travelers make better decisions by understanding the relationships between different tourism factors such as destinations, transportation, weather, crowd conditions, events, and available services.
+**TourNexus** is a dependency-aware tourism intelligence and itinerary adaptation platform designed to understand tourism as an interconnected ecosystem rather than a collection of independent services.
 
-Instead of treating each tourism service independently, Tour Nexus aims to model the dependencies between them and analyze how a change in one factor can affect other connected components of a tourist's journey.
+The platform connects tourism components such as:
 
-The system can then recommend alternatives and dynamically adapt the tourist's itinerary based on changing conditions.
+- 🏛️ Attractions
+- 🏨 Hotels
+- 🚌 Transportation
+- 🍽️ Restaurants
+- 🎭 Events
+- 🌦️ Weather
+- 🗺️ Routes
+- 👥 Crowd conditions
+- ♿ Accessibility
+- 🎟️ Activities and bookings
 
----
+The key idea behind TourNexus is simple:
 
-## 🎯 Problem
-
-Tourism services are often fragmented across different platforms. Travelers may need to separately check destinations, transportation, weather, events, accommodation, and other services while planning a trip.
-
-More importantly, when an important factor changes — such as unfavorable weather, increased crowd levels, transportation disruption, or temporary unavailability of a destination — the impact on the rest of the itinerary is not always identified automatically.
-
-This creates a need for an intelligent tourism system that can understand these relationships and assist travelers in adapting their plans.
-
----
-
-## 💡 Our Solution
-
-Tour Nexus brings tourism-related information together into a unified destination intelligence platform.
-
-The system aims to:
-
-- Understand relationships between tourism services and destinations
-- Analyze the impact of changes in one tourism factor on connected components
-- Identify affected parts of a tourist's itinerary
-- Recommend suitable alternatives
-- Dynamically adapt itineraries based on changing conditions
-- Provide destination intelligence through an interactive map-based interface
+> **When one tourism service changes, the system should understand what else is affected and automatically adapt the tourist's journey.**
 
 ---
 
-## 🚀 Core Workflow
+# 🌐 Overview
+
+Modern tourism is supported by many digital services.
+
+A tourist may use one application to discover an attraction, another service to check transportation, another platform to book a hotel, another service for weather information, and another service for restaurants or events.
+
+Although these services may be available digitally, they are often treated as **separate entities**.
+
+This creates a problem when something changes.
 
 ```text
-Tourist
-   ↓
-Select Destination & Preferences
-   ↓
-Collect Tourism & Destination Data
-   ↓
-Analyze Dependencies
-   ↓
-Generate Initial Itinerary
-   ↓
-Monitor / Detect Changes
-   ↓
-Analyze Impact on Connected Components
-   ↓
-Recommend Alternatives
-   ↓
-Adapt Itinerary
-   ↓
-Present Updated Plan to Tourist
+Attraction Closed
+       ↓
+Planned Activity Cancelled
+       ↓
+Tourist Has Free Time
+       ↓
+Transport Plan Becomes Suboptimal
+       ↓
+Restaurant Timing Changes
+       ↓
+Alternative Attraction Needed
+       ↓
+New Route Required
+       ↓
+Itinerary Must Be Replanned
