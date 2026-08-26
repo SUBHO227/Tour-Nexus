@@ -1,4 +1,7 @@
 from fastapi import FastAPI
+from app.api.routes.destinations import router as destinations_router
+from app.api.routes.attractions import router as attractions_router
+from app.api.routes.crowd import router as crowd_router
 
 app = FastAPI(
     title="TourNexus API",
@@ -6,6 +9,20 @@ app = FastAPI(
     version="1.0.0",
 )
 
+app.include_router(
+    destinations_router,
+    prefix="/api",
+)
+
+app.include_router(
+    attractions_router,
+    prefix="/api",
+)
+
+app.include_router(
+    crowd_router,
+    prefix="/api",
+)
 
 @app.get("/")
 def root():
