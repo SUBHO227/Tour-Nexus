@@ -7,8 +7,6 @@ class CrowdDataCreate(BaseModel):
     attraction_id: int
     estimated_visitors: int
     capacity: int
-    crowd_score: float
-    crowd_level: str
     source: str = "estimated"
 
 
