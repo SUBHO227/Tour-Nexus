@@ -1,4 +1,7 @@
 from fastapi import FastAPI
+from app.api.routes.analytics import router as analytics_router
+from app.api.routes.auth import router as auth_router
+from app.api.routes.services import router as services_router
 from app.api.routes.destinations import router as destinations_router
 from app.api.routes.attractions import router as attractions_router
 from app.api.routes.crowd import router as crowd_router
@@ -13,6 +16,8 @@ from app.api.routes.transport import router as transport_router
 from app.api.routes.events import router as events_router
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.config import get_cors_origins
+
 app = FastAPI(
     title="TourNexus API",
     description="Backend API for the TourNexus Smart Tourism Platform",
@@ -21,13 +26,25 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5500",
-        "http://127.0.0.1:5500",
-    ],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.include_router(
+    auth_router,
+    prefix="/api",
+)
+
+app.include_router(
+    analytics_router,
+    prefix="/api",
+)
+
+app.include_router(
+    services_router,
+    prefix="/api",
 )
 
 app.include_router(

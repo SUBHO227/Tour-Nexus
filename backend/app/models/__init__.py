@@ -10,6 +10,7 @@ from app.models.crowd import CrowdData
 from app.models.itinerary import Itinerary
 from app.models.itinerary_item import ItineraryItem
 from app.models.dependency import Dependency
+from app.models.service import Service
 
 __all__ = [
     "User",
@@ -21,4 +22,8 @@ __all__ = [
     "Itinerary",
     "ItineraryItem",
     "Dependency",
+    "Service",
+    "Hotel",
+    "Restaurant",
+    "Transport",
 ]

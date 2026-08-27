@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.security import get_current_user, require_authority
 from app.database.connection import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserResponse
 
 
 router = APIRouter(
@@ -13,39 +14,10 @@ router = APIRouter(
 )
 
 
-@router.post(
-    "/",
-    response_model=UserResponse,
-    status_code=201,
-)
-def create_user(
-    user: UserCreate,
-    db: Session = Depends(get_db),
-):
-    existing_user = db.execute(
-        select(User).where(User.email == user.email)
-    ).scalar_one_or_none()
-
-    if existing_user is not None:
-        raise HTTPException(
-            status_code=409,
-            detail="Email already registered",
-        )
-
-    user_data = User(
-        **user.model_dump()
-    )
-
-    db.add(user_data)
-    db.commit()
-    db.refresh(user_data)
-
-    return user_data
-
-
 @router.get(
     "/",
     response_model=list[UserResponse],
+    dependencies=[Depends(require_authority)],
 )
 def get_users(
     db: Session = Depends(get_db),
@@ -58,13 +30,30 @@ def get_users(
 
 
 @router.get(
+    "/me",
+    response_model=UserResponse,
+)
+def get_own_profile(
+    user: User = Depends(get_current_user),
+):
+    return user
+
+
+@router.get(
     "/{user_id}",
     response_model=UserResponse,
 )
 def get_user(
     user_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if current_user.role != "authority" and current_user.id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Not allowed to view this user",
+        )
+
     user = db.get(User, user_id)
 
     if user is None:

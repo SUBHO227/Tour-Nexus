@@ -67,3 +67,68 @@ def create_crowd_data(
     db.refresh(crowd_data)
 
     return crowd_data
+
+@router.get(
+    "/",
+    response_model=list[CrowdDataResponse],
+)
+def get_crowd_data(
+    db: Session = Depends(get_db),
+):
+    """Latest-first crowd readings across every attraction."""
+
+    result = db.execute(
+        select(CrowdData).order_by(CrowdData.timestamp.desc())
+    )
+
+    return result.scalars().all()
+
+
+@router.get(
+    "/latest",
+    response_model=list[CrowdDataResponse],
+)
+def get_latest_crowd_per_attraction(
+    db: Session = Depends(get_db),
+):
+    """One reading per attraction: the most recent one.
+
+    This is what the dashboards actually need - a snapshot of current
+    conditions rather than the full history.
+    """
+
+    result = db.execute(
+        select(CrowdData).order_by(CrowdData.timestamp.desc())
+    )
+
+    latest: dict[int, CrowdData] = {}
+
+    for reading in result.scalars().all():
+        latest.setdefault(reading.attraction_id, reading)
+
+    return sorted(latest.values(), key=lambda r: r.attraction_id)
+
+
+@router.get(
+    "/attraction/{attraction_id}",
+    response_model=list[CrowdDataResponse],
+)
+def get_crowd_for_attraction(
+    attraction_id: int,
+    db: Session = Depends(get_db),
+):
+    attraction = db.get(Attraction, attraction_id)
+
+    if attraction is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Attraction not found",
+        )
+
+    result = db.execute(
+        select(CrowdData)
+        .where(CrowdData.attraction_id == attraction_id)
+        .order_by(CrowdData.timestamp.desc())
+    )
+
+    return result.scalars().all()

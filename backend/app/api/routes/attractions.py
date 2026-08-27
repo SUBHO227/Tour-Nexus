@@ -59,3 +59,46 @@ def create_attraction(
     db.refresh(new_attraction)
 
     return new_attraction
+
+@router.get(
+    "/destination/{destination_id}",
+    response_model=list[AttractionResponse],
+)
+def get_attractions_for_destination(
+    destination_id: int,
+    db: Session = Depends(get_db),
+):
+    destination = db.get(Destination, destination_id)
+
+    if destination is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Destination not found",
+        )
+
+    result = db.execute(
+        select(Attraction)
+        .where(Attraction.destination_id == destination_id)
+        .order_by(Attraction.name)
+    )
+
+    return result.scalars().all()
+
+
+@router.get(
+    "/{attraction_id}",
+    response_model=AttractionResponse,
+)
+def get_attraction(
+    attraction_id: int,
+    db: Session = Depends(get_db),
+):
+    attraction = db.get(Attraction, attraction_id)
+
+    if attraction is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Attraction not found",
+        )
+
+    return attraction
