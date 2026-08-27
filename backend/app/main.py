@@ -9,6 +9,7 @@ from app.api.routes.itinerary_items import router as itinerary_items_router
 from app.api.routes.users import router as users_router
 from app.api.routes.hotels import router as hotels_router
 from app.api.routes.restaurants import router as restaurants_router
+from app.api.routes.transport import router as transport_router
 
 app = FastAPI(
     title="TourNexus API",
@@ -63,6 +64,11 @@ app.include_router(
 
 app.include_router(
     restaurants_router,
+    prefix="/api",
+)
+
+app.include_router(
+    transport_router,
     prefix="/api",
 )
 
