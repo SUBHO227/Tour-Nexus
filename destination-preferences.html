@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Destination & Preferences - TRAVEL-X</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#0b1220',
+                        panel: '#111a2e',
+                        panel2: '#0f1830',
+                        line: '#1f2b45'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: #0b1220;
+            font-family: Inter, system-ui, sans-serif;
+            color: #e2e8f0;
+        }
+
+        .card {
+            background: #111a2e;
+            border: 1px solid #1f2b45;
+        }
+
+        .chip { border-radius: 9999px; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0b1220; }
+        ::-webkit-scrollbar-thumb { background: #1f2b45; border-radius: 3px; }
+
+        @keyframes fadeSlide {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeSlide 0.35s ease forwards; }
+
+        /* Destination cards */
+        .dest-card {
+            transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+        }
+        .dest-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+        }
+        .dest-card.selected {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 1px #6366f130, 0 8px 24px #6366f118;
+        }
+
+        /* Toggle chips */
+        .pref-chip {
+            border: 1px solid #1f2b45;
+            transition: all 0.15s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+        .pref-chip:hover { border-color: #6366f160; }
+        .pref-chip.active {
+            border-color: #6366f1;
+            background: #6366f115;
+            color: #818cf8;
+        }
+
+        /* Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: #1f2b45;
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #6366f1;
+            cursor: pointer;
+            box-shadow: 0 0 0 3px #6366f130;
+            transition: box-shadow 0.2s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            box-shadow: 0 0 0 6px #6366f125;
+        }
+
+        /* Custom select */
+        select {
+            background: #0f1830;
+            border: 1px solid #1f2b45;
+            color: #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 13px;
+            outline: none;
+            width: 100%;
+            transition: border-color 0.2s;
+        }
+        select:focus { border-color: #6366f1; }
+
+        /* Input field */
+        .dp-input {
+            background: #0f1830;
+            border: 1px solid #1f2b45;
+            color: #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 13px;
+            outline: none;
+            width: 100%;
+            transition: border-color 0.2s;
+        }
+        .dp-input:focus { border-color: #6366f1; }
+        .dp-input::placeholder { color: #475569; }
+
+        .save-btn {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            box-shadow: 0 4px 14px #6366f130;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .save-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px #6366f140;
+        }
+
+        @keyframes checkPop {
+            0%   { transform: scale(0); opacity: 0; }
+            70%  { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .check-pop { animation: checkPop 0.3s ease forwards; }
+
+        /* Destination image placeholder gradient */
+        .dest-thumb {
+            height: 90px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        @keyframes shimmer {
+            0%   { background-position: -400px 0; }
+            100% { background-position: 400px 0; }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        const Icon = ({ d, className = 'w-5 h-5', style }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" style={style}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={d} />
+            </svg>
+        );
+
+        const I = {
+            home:     'M3 12l9-9 9 9M5 10v10h14V10',
+            alert:    'M12 9v4m0 4h.01M10.29 3.86l-8.48 14.7A1 1 0 0 0 2.66 20h18.68a1 1 0 0 0 .85-1.44L13.71 3.86a1 1 0 0 0-1.72 0Z',
+            map:      'M9 20l-6-3V4l6 3 6-3 6 3v13l-6-3-6 3zM9 7v13M15 4v13',
+            users:    'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+            report:   'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M9 13h6M9 17h6',
+            check:    'M20 6L9 17l-5-5',
+            pin:      'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+            swap:     'M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4',
+            edit:     'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z',
+            shield:   'M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z',
+            net:      'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z',
+            impact:   'M3 3v18h18M7 15l4-6 3 4 5-8',
+            star:     'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+            save:     'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8',
+            sun:      'M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41M12 6a6 6 0 1 0 0 12A6 6 0 0 0 12 6z',
+            heart:    'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z',
+            camera:   'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+            walk:     'M13 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5.5 10.5l2-4 4 1.5L13 12l4 2M7 22l2-5 3 2 2-5',
+            clock:    'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 6v6l4 2',
+            cloud:    'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z',
+            calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+            refresh:  'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+        };
+
+        /* ── Sidebar ──────────────────────────────────────────────────── */
+        const Sidebar = () => (
+            <aside className="w-60 bg-panel border-r border-line flex flex-col py-4 shrink-0 fixed h-full z-10">
+                <div className="flex items-center gap-2 px-4 mb-8 mt-2">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                        <Icon d={I.map} className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                        <p className="font-bold text-white text-sm leading-none tracking-wide">TRAVEL-X</p>
+                        <p className="text-[10px] text-slate-500 font-medium">Smart Tourism Platform</p>
+                    </div>
+                </div>
+                <div>
+                    <p className="px-4 text-[11px] tracking-widest text-slate-500 font-semibold mb-2">TOURIST APP</p>
+                    {[
+                        ['home',    'Dashboard'],
+                        ['users',   'Tourist Profile'],
+                        ['report',  'Itinerary Generation'],
+                        ['pin',     'Destination & Preferences', true],
+                        ['map',     'Current Itinerary'],
+                        ['alert',   'Disruption Alert'],
+                        ['net',     'Dependency / Impact View'],
+                        ['swap',    'Alternative Recommendations'],
+                        ['edit',    'Updated Itinerary'],
+                    ].map(([icon, label, active], i) => (
+                        <div key={i}
+                            className={`flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg cursor-pointer text-sm font-medium transition-all
+                                ${active ? 'bg-indigo-600/15 text-indigo-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}>
+                            <Icon d={I[icon]} className="w-4 h-4" />
+                            <span>{label}</span>
+                        </div>
+                    ))}
+                </div>
+            </aside>
+        );
+
+        /* ── Destination Data ─────────────────────────────────────────── */
+        const DESTINATIONS = [
+            {
+                id: 'puri', name: 'Puri', state: 'Odisha',
+                tags: ['Beach', 'Temple', 'Heritage'],
+                rating: 4.8, days: '3–5 Days',
+                gradient: 'linear-gradient(135deg,#0ea5e9,#6366f1)',
+                emoji: '🏖️',
+            },
+            {
+                id: 'konark', name: 'Konark', state: 'Odisha',
+                tags: ['Heritage', 'UNESCO', 'Architecture'],
+                rating: 4.9, days: '1–2 Days',
+                gradient: 'linear-gradient(135deg,#f59e0b,#ef4444)',
+                emoji: '🛕',
+            },
+            {
+                id: 'bhubaneswar', name: 'Bhubaneswar', state: 'Odisha',
+                tags: ['Temple City', 'Culture', 'Museums'],
+                rating: 4.6, days: '2–3 Days',
+                gradient: 'linear-gradient(135deg,#a855f7,#6366f1)',
+                emoji: '🏛️',
+            },
+            {
+                id: 'chilika', name: 'Chilika Lake', state: 'Odisha',
+                tags: ['Wildlife', 'Nature', 'Boating'],
+                rating: 4.7, days: '1–2 Days',
+                gradient: 'linear-gradient(135deg,#22c55e,#0ea5e9)',
+                emoji: '🦢',
+            },
+            {
+                id: 'simlipal', name: 'Simlipal', state: 'Odisha',
+                tags: ['Tiger Reserve', 'Forest', 'Adventure'],
+                rating: 4.5, days: '2–4 Days',
+                gradient: 'linear-gradient(135deg,#22c55e,#f59e0b)',
+                emoji: '🐯',
+            },
+            {
+                id: 'chandipur', name: 'Chandipur', state: 'Odisha',
+                tags: ['Beach', 'Unique', 'Offbeat'],
+                rating: 4.3, days: '1–2 Days',
+                gradient: 'linear-gradient(135deg,#f43f5e,#f97316)',
+                emoji: '🌊',
+            },
+        ];
+
+        const INTERESTS = [
+            '🏛️ Heritage & Culture', '🏖️ Beaches', '🌿 Nature & Wildlife',
+            '🍽️ Local Cuisine', '🎨 Art & Craft', '📸 Photography',
+            '🧘 Wellness & Yoga', '🚶 Trekking', '🛍️ Shopping',
+            '⛩️ Temples & Spirituality', '🎭 Festivals & Events', '🏄 Water Sports',
+        ];
+
+        const PACE_OPTIONS = ['Relaxed (1–2 activities/day)', 'Moderate (3–4 activities/day)', 'Packed (5+ activities/day)'];
+        const TRANSPORT_OPTIONS = ['Private Car', 'Self-Drive / Rental', 'Public Transport', 'Auto / Rickshaw', 'Mixed'];
+        const ACCOM_OPTIONS = ['Budget (₹500–1,500/night)', 'Mid-range (₹1,500–4,000/night)', 'Premium (₹4,000–8,000/night)', 'Luxury (₹8,000+/night)'];
+        const DIET_OPTIONS = ['Vegetarian', 'Non-Vegetarian', 'Vegan', 'Jain', 'No Preference'];
+
+        /* ── Sub-components ───────────────────────────────────────────── */
+        const SectionTitle = ({ icon, title, sub }) => (
+            <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center shrink-0">
+                    <Icon d={I[icon]} className="w-4 h-4 text-indigo-400" />
+                </div>
+                <div>
+                    <p className="text-white font-bold text-sm">{title}</p>
+                    {sub && <p className="text-[11px] text-slate-500 mt-0.5">{sub}</p>}
+                </div>
+            </div>
+        );
+
+        const PrefChip = ({ label, active, onClick }) => (
+            <div onClick={onClick}
+                className={`pref-chip px-3 py-1.5 rounded-xl text-xs font-medium ${active ? 'active' : 'text-slate-400'}`}>
+                {label}
+            </div>
+        );
+
+        const StarRating = ({ rating }) => (
+            <div className="flex items-center gap-0.5">
+                {[1,2,3,4,5].map(i => (
+                    <svg key={i} className="w-3 h-3" viewBox="0 0 24 24" fill={i <= Math.round(rating) ? '#f59e0b' : 'none'}
+                        stroke="#f59e0b" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d={I.star} />
+                    </svg>
+                ))}
+                <span className="text-[10px] text-slate-400 ml-1">{rating}</span>
+            </div>
+        );
+
+        /* ── Main Component ───────────────────────────────────────────── */
+        const DestinationPreferences = () => {
+            const [selectedDests, setSelectedDests] = useState(['puri', 'konark']);
+            const [interests, setInterests]         = useState(['🏖️ Beaches', '⛩️ Temples & Spirituality', '🍽️ Local Cuisine']);
+            const [budget, setBudget]               = useState(8000);
+            const [travellers, setTravellers]       = useState(2);
+            const [pace, setPace]                   = useState(PACE_OPTIONS[1]);
+            const [transport, setTransport]         = useState('Private Car');
+            const [accommodation, setAccom]         = useState(ACCOM_OPTIONS[1]);
+            const [diet, setDiet]                   = useState('No Preference');
+            const [startDate, setStartDate]         = useState('2025-12-12');
+            const [endDate, setEndDate]             = useState('2025-12-16');
+            const [specialNotes, setSpecialNotes]   = useState('');
+            const [saved, setSaved]                 = useState(false);
+
+            const toggleDest = (id) => setSelectedDests(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+            const toggleInt  = (i)  => setInterests(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i]);
+            const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 3000); };
+
+            return (
+                <div className="flex min-h-screen">
+                    <Sidebar />
+                    <main className="flex-1 ml-60 p-6 min-h-screen">
+
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-6 fade-in">
+                            <div>
+                                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                                    <span className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                                        <Icon d={I.pin} className="w-5 h-5 text-indigo-400" />
+                                    </span>
+                                    Destination & Preferences 🗺️
+                                </h1>
+                                <p className="text-slate-400 text-sm mt-1">
+                                    Personalise your travel — select destinations and set your trip preferences for smarter AI recommendations.
+                                </p>
+                            </div>
+                            <button onClick={handleSave}
+                                className="save-btn flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white">
+                                {saved
+                                    ? <><Icon d={I.check} className="w-4 h-4 check-pop" /> Saved!</>
+                                    : <><Icon d={I.save} className="w-4 h-4" /> Save Preferences</>}
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-12 gap-6">
+
+                            {/* ── LEFT COL ── */}
+                            <div className="col-span-8 space-y-6">
+
+                                {/* Destination Selection */}
+                                <div className="card rounded-2xl p-5 fade-in" style={{ animationDelay: '0.05s' }}>
+                                    <SectionTitle icon="pin" title="Select Destinations"
+                                        sub="Choose one or more destinations for your Odisha trip" />
+                                    <div className="grid grid-cols-3 gap-4">
+                                        {DESTINATIONS.map(d => (
+                                            <div key={d.id}
+                                                onClick={() => toggleDest(d.id)}
+                                                className={`dest-card card rounded-2xl overflow-hidden ${selectedDests.includes(d.id) ? 'selected' : ''}`}>
+                                                {/* Thumb */}
+                                                <div className="dest-thumb flex items-center justify-center text-5xl"
+                                                    style={{ background: d.gradient }}>
+                                                    {d.emoji}
+                                                </div>
+                                                <div className="px-3 pb-3">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <p className="text-white font-bold text-sm">{d.name}</p>
+                                                        {selectedDests.includes(d.id) && (
+                                                            <div className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center">
+                                                                <Icon d={I.check} className="w-3 h-3 text-white" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[10px] text-slate-500 mb-2">{d.state} · {d.days}</p>
+                                                    <StarRating rating={d.rating} />
+                                                    <div className="flex flex-wrap gap-1 mt-2">
+                                                        {d.tags.map((t, i) => (
+                                                            <span key={i} className="chip text-[10px] px-2 py-0.5 font-medium"
+                                                                style={{ background: '#6366f115', color: '#818cf8' }}>
+                                                                {t}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {selectedDests.length > 0 && (
+                                        <div className="mt-4 p-3 rounded-xl flex items-center gap-2 text-xs"
+                                            style={{ background: '#6366f110', border: '1px solid #6366f130' }}>
+                                            <Icon d={I.check} className="w-3.5 h-3.5 text-indigo-400" />
+                                            <span className="text-indigo-300 font-medium">
+                                                {selectedDests.length} destination{selectedDests.length > 1 ? 's' : ''} selected:&nbsp;
+                                                {selectedDests.map(id => DESTINATIONS.find(d => d.id === id)?.name).join(' → ')}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Travel Dates */}
+                                <div className="card rounded-2xl p-5 fade-in" style={{ animationDelay: '0.08s' }}>
+                                    <SectionTitle icon="calendar" title="Travel Dates"
+                                        sub="Set your arrival and departure dates" />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-[11px] text-slate-400 font-semibold mb-2 uppercase tracking-wider">Check-in Date</p>
+                                            <input type="date" value={startDate}
+                                                onChange={e => setStartDate(e.target.value)}
+                                                className="dp-input" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] text-slate-400 font-semibold mb-2 uppercase tracking-wider">Check-out Date</p>
+                                            <input type="date" value={endDate}
+                                                onChange={e => setEndDate(e.target.value)}
+                                                className="dp-input" />
+                                        </div>
+                                    </div>
+                                    {startDate && endDate && (
+                                        <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+                                            <Icon d={I.clock} className="w-3.5 h-3.5 text-indigo-400" />
+                                            Trip duration:&nbsp;
+                                            <span className="text-indigo-300 font-semibold">
+                                                {Math.max(0, Math.round((new Date(endDate) - new Date(startDate)) / 86400000))} nights
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Interests */}
+                                <div className="card rounded-2xl p-5 fade-in" style={{ animationDelay: '0.11s' }}>
+                                    <SectionTitle icon="heart" title="Travel Interests"
+                                        sub="Select all categories that interest you — AI uses these to personalise your itinerary" />
+                                    <div className="flex flex-wrap gap-2">
+                                        {INTERESTS.map((label, i) => (
+                                            <PrefChip key={i} label={label}
+                                                active={interests.includes(label)}
+                                                onClick={() => toggleInt(label)} />
+                                        ))}
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 mt-3">
+                                        {interests.length} interest{interests.length !== 1 ? 's' : ''} selected
+                                    </p>
+                                </div>
+
+                                {/* Travel Pace */}
+                                <div className="card rounded-2xl p-5 fade-in" style={{ animationDelay: '0.13s' }}>
+                                    <SectionTitle icon="walk" title="Travel Pace"
+                                        sub="How many activities do you prefer per day?" />
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {PACE_OPTIONS.map((opt, i) => (
+                                            <div key={i} onClick={() => setPace(opt)}
+                                                className={`pref-chip p-3 rounded-xl text-center text-xs font-medium ${pace === opt ? 'active' : 'text-slate-400'}`}>
+                                                <p className="text-xl mb-1">{['🧘','🚶','🏃'][i]}</p>
+                                                {opt}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Special Notes */}
+                                <div className="card rounded-2xl p-5 fade-in" style={{ animationDelay: '0.15s' }}>
+                                    <SectionTitle icon="edit" title="Special Notes & Requirements"
+                                        sub="Accessibility needs, medical requirements, special occasions, etc." />
+                                    <textarea
+                                        value={specialNotes}
+                                        onChange={e => setSpecialNotes(e.target.value)}
+                                        placeholder="e.g. We have a 6-year-old child. Prefer air-conditioned transport. Anniversary trip — surprise dinner booking preferred..."
+                                        rows={4}
+                                        className="dp-input resize-none"
+                                        style={{ borderRadius: 12 }}
+                                    />
+                                    <p className="text-[11px] text-slate-500 mt-2 text-right">{specialNotes.length} / 500</p>
+                                </div>
+                            </div>
+
+                            {/* ── RIGHT COL ── */}
+                            <div className="col-span-4 space-y-5">
+
+                                {/* Travellers */}
+                                <div className="card rounded-2xl p-5 fade-in" style={{ animationDelay: '0.06s' }}>
+                                    <SectionTitle icon="users" title="Travellers" />
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-3xl font-black text-white">{travellers}</p>
+                                            <p className="text-xs text-slate-400">Adult{travellers > 1 ? 's' : ''}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button onClick={() => setTravellers(p => Math.max(1, p - 1))}
+                                                className="w-9 h-9 rounded-xl border border-line text-slate-300 hover:text-white hover:border-slate-500 flex items-center justify-center text-lg font-bold transition-all">
+                                                −
+                                            </button>
+                                            <button onClick={() => setTravellers(p => Math.min(20, p + 1))}
+                                                className="w-9 h-9 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-600/30 flex items-center justify-center text-lg font-bold transition-all">
+                                                +
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Daily Budget */}
+                                <div className="card rounded-2xl p-5 fade-in" style={{ animationDelay: '0.09s' }}>
+                                    <SectionTitle icon="impact" title="Daily Budget (per person)"
+                                        sub="Activities & dining (excl. accommodation)" />
+                                    <div className="flex items-end justify-between mb-3">
+                                        <p className="text-2xl font-black text-white">₹{budget.toLocaleString()}</p>
+                                        <p className="text-[11px] text-slate-500">per day</p>
+                                    </div>
+                                    <input type="range" min={500} max={25000} step={500}
+                                        value={budget} onChange={e => setBudget(+e.target.value)}
+                                        style={{ accentColor: '#6366f1' }}
+                                    />
+                                    <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                                        <span>₹500</span><span>₹25,000</span>
+                                    </div>
+                                    <div className="mt-3 grid grid-cols-3 gap-1">
+                                        {[2000, 5000, 10000].map(b => (
+                                            <button key={b} onClick={() => setBudget(b)}
+                                                className={`text-[10px] px-2 py-1.5 rounded-lg font-semibold transition-all ${budget === b ? 'bg-indigo-600/20 border border-indigo-500/40 text-indigo-400' : 'border border-line text-slate-500 hover:text-slate-300'}`}>
+                                                ₹{b.toLocaleString()}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Accommodation */}
+                                <div className="card rounded-2xl p-5 fade-in" style={{ animationDelay: '0.1s' }}>
+                                    <SectionTitle icon="shield" title="Accommodation Type" />
+                                    <div className="space-y-2">
+                                        {ACCOM_OPTIONS.map((opt, i) => (
+                                            <div key={i} onClick={() => setAccom(opt)}
+                                                className={`pref-chip px-3 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2 ${accommodation === opt ? 'active' : 'text-slate-400'}`}>
+                                                <span>{['🏕️','🏨','🏩','🏰'][i]}</span> {opt}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Transport */}
+                                <div className="card rounded-2xl p-5 fade-in" style={{ animationDelay: '0.12s' }}>
+                                    <SectionTitle icon="swap" title="Preferred Transport" />
+                                    <div className="space-y-2">
+                                        {TRANSPORT_OPTIONS.map((opt, i) => (
+                                            <div key={i} onClick={() => setTransport(opt)}
+                                                className={`pref-chip px-3 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2 ${transport === opt ? 'active' : 'text-slate-400'}`}>
+                                                <span>{['🚗','🚙','🚌','🛺','🔀'][i]}</span> {opt}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Dietary */}
+                                <div className="card rounded-2xl p-5 fade-in" style={{ animationDelay: '0.14s' }}>
+                                    <SectionTitle icon="star" title="Dietary Preference" />
+                                    <div className="space-y-2">
+                                        {DIET_OPTIONS.map((opt, i) => (
+                                            <div key={i} onClick={() => setDiet(opt)}
+                                                className={`pref-chip px-3 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2 ${diet === opt ? 'active' : 'text-slate-400'}`}>
+                                                <span>{['🌿','🍗','🥦','🕉️','🍽️'][i]}</span> {opt}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Summary Card */}
+                                <div className="card rounded-2xl p-5 fade-in"
+                                    style={{ animationDelay: '0.16s', borderColor: '#6366f130', background: '#6366f108' }}>
+                                    <p className="text-white font-bold text-sm mb-3 flex items-center gap-2">
+                                        <Icon d={I.star} className="w-4 h-4 text-indigo-400" /> Preference Summary
+                                    </p>
+                                    <div className="space-y-2 text-[11px]">
+                                        {[
+                                            ['Destinations', selectedDests.length + ' selected'],
+                                            ['Dates', startDate && endDate ? `${startDate} → ${endDate}` : 'Not set'],
+                                            ['Travellers', travellers + ' adults'],
+                                            ['Budget/day', '₹' + budget.toLocaleString()],
+                                            ['Pace', pace.split('(')[0].trim()],
+                                            ['Transport', transport],
+                                            ['Accommodation', accommodation.split('(')[0].trim()],
+                                            ['Diet', diet],
+                                            ['Interests', interests.length + ' selected'],
+                                        ].map(([label, val], i) => (
+                                            <div key={i} className="flex justify-between items-center py-1 border-b border-line last:border-0">
+                                                <span className="text-slate-400">{label}</span>
+                                                <span className="text-indigo-300 font-semibold">{val}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button onClick={handleSave}
+                                        className="save-btn w-full mt-4 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2">
+                                        {saved
+                                            ? <><Icon d={I.check} className="w-4 h-4 check-pop" /> Saved!</>
+                                            : <><Icon d={I.save} className="w-4 h-4" /> Save Preferences</>}
+                                    </button>
+                                </div>
+
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<DestinationPreferences />);
+    </script>
+</body>
+</html>

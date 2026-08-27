@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Current Itinerary – TRAVEL-X</title>
+  <meta name="description"
+    content="View and manage your current active travel itinerary on TRAVEL-X Smart Tourism Platform." />
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#0b1220', panel: '#111a2e', panel2: '#0f1830', line: '#1f2b45'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #0b1220;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: #cbd5e1;
+      min-height: 100vh;
+    }
+
+    .card {
+      background: #111a2e;
+      border: 1px solid #1f2b45;
+    }
+
+    .chip {
+      border-radius: 9999px;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #0b1220;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #1f2b45;
+      border-radius: 3px;
+    }
+
+    @keyframes fadeSlide {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: .4;
+      }
+    }
+
+    @keyframes progressFill {
+      from {
+        width: 0%;
+      }
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .fade-in {
+      animation: fadeSlide 0.4s ease both;
+    }
+
+    .slide-in {
+      animation: slideIn 0.3s ease both;
+    }
+
+    .pulse {
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .progress-fill {
+      animation: progressFill 1s ease forwards;
+    }
+
+    .day-card {
+      transition: all 0.2s ease;
+    }
+
+    .day-card:hover {
+      border-color: #6366f140;
+    }
+
+    .day-card.active-day {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 1px #6366f130, 0 4px 20px #6366f115;
+    }
+
+    .act-row {
+      transition: all 0.18s;
+    }
+
+    .act-row:hover {
+      background: rgba(99, 102, 241, 0.04);
+    }
+
+    .timeline-dot {
+      position: relative;
+    }
+
+    .timeline-dot::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 100%;
+      transform: translateX(-50%);
+      width: 2px;
+      height: 100%;
+      background: #1f2b45;
+    }
+
+    .timeline-dot.last::before {
+      display: none;
+    }
+
+    input {
+      background: #0f1830;
+      border: 1px solid #1f2b45;
+      color: #cbd5e1;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #6366f1;
+    }
+
+    .tab-active {
+      background: #6366f1;
+      color: white;
+    }
+
+    .tab-inactive {
+      color: #94a3b8;
+    }
+
+    .tab-inactive:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #cbd5e1;
+    }
+
+    .alert-high {
+      background: #f43f5e08;
+      border-color: #f43f5e30;
+    }
+
+    .alert-med {
+      background: #f59e0b08;
+      border-color: #f59e0b30;
+    }
+
+    .alert-low {
+      background: #22c55e08;
+      border-color: #22c55e30;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    /* ── Icons ───────────────────────────────────────────────── */
+    const Icon = ({ d, className = "w-5 h-5", style }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={style}>
+        <path strokeLinecap="round" strokeLinejoin="round" d={d} />
+      </svg>
+    );
+    const I = {
+      home: "M3 12l9-9 9 9M5 10v10h14V10",
+      map: "M9 20l-6-3V4l6 3 6-3 6 3v13l-6-3-6 3zM9 7v13M15 4v13",
+      report: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M9 13h6M9 17h6M9 9h1",
+      gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09c0 .67.4 1.28 1 1.51.62.25 1.34.12 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.45.48-.58 1.2-.33 1.82.23.6.84 1 1.51 1H21a2 2 0 0 1 0 4h-.09c-.67 0-1.28.4-1.51 1z",
+      alert: "M12 9v4m0 4h.01M10.29 3.86l-8.48 14.7A1 1 0 0 0 2.66 20h18.68a1 1 0 0 0 .85-1.44L13.71 3.86a1 1 0 0 0-1.72 0Z",
+      users: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+      check: "M20 6L9 17l-5-5",
+      dl: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
+      share: "M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13",
+      clock: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 6v6l4 2",
+      star: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
+      pin: "M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
+      car: "M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-2M14 17H9m-4 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm9 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z",
+      hotel: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10",
+      food: "M18 8h1a4 4 0 1 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4zM6 1v3M10 1v3M14 1v3",
+      sight: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+      sun: "M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42M12 6a6 6 0 1 0 0 12A6 6 0 0 0 12 6z",
+      rain: "M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9M16 14v6M12 14v6M8 14v6",
+      bell: "M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0",
+      search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35",
+      shield: "M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z",
+      heart: "M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z",
+      edit: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
+      net: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z",
+      impact: "M3 3v18h18M7 15l4-6 3 4 5-8",
+      swap: "M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4",
+      plus: "M5 12h14M12 5v14",
+      trash: "M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6",
+      chevron: "M9 18l6-6-6-6",
+      info: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 16v-4M12 8h.01",
+    };
+
+    /* ── Helpers ─────────────────────────────────────────────── */
+    const Badge = ({ text, color }) => (
+      <span className="chip text-[10px] px-2 py-0.5 font-semibold"
+        style={{ background: color + '22', color }}>{text}</span>
+    );
+
+    /* ── NAV ──────────────────────────────────────────────────── */
+    const NAV = [
+      ['home', 'Dashboard'],
+      ['users', 'Login / Registration'],
+      ['users', 'Tourist Profile'],
+      ['report', 'Destination & Preferences'],
+      ['report', 'Itinerary Generation'],
+      ['map', 'Interactive Map'],
+      ['report', 'Current Itinerary'],
+      ['alert', 'Disruption Alert'],
+      ['gear', 'Dependency / Impact View'],
+      ['report', 'Alternative Recommendations'],
+      ['report', 'Updated Itinerary'],
+    ];
+
+    const Sidebar = () => (
+      <aside className="w-60 bg-panel border-r border-line flex flex-col py-4 shrink-0 fixed top-0 left-0 h-full z-30 overflow-y-auto">
+        <div className="flex items-center gap-2 px-4 mb-6">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <Icon d={I.map} className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-white text-sm leading-none">TRAVEL-X</p>
+            <p className="text-[10px] text-slate-500">Smart Tourism Platform</p>
+          </div>
+        </div>
+        <p className="px-4 text-[11px] tracking-widest text-slate-500 font-semibold mb-1">TOURIST APP</p>
+        {NAV.map(([icon, label], i) => (
+          <div key={i} className={`flex items-center gap-3 px-4 py-2 mx-2 rounded-lg cursor-pointer text-sm transition-all ${label === 'Current Itinerary' ? 'bg-indigo-600/90 text-white' : 'text-slate-400 hover:bg-white/5'
+            }`}>
+            <Icon d={I[icon]} className="w-4 h-4" />
+            <span>{label}</span>
+          </div>
+        ))}
+        <div className="mt-auto mx-3 card rounded-lg p-3 mt-4">
+          <p className="text-xs flex items-center gap-1 text-emerald-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />System Status
+          </p>
+          <p className="text-[11px] text-slate-400 mt-1">All Systems Operational</p>
+          <p className="text-[10px] text-slate-600">Last updated: 10:30 AM</p>
+        </div>
+      </aside>
+    );
+
+    /* ── DATA ────────────────────────────────────────────────── */
+    const TRIP = {
+      id: 'TRP-20251212-PRI',
+      destination: 'Puri, Odisha',
+      startDate: '12 Dec 2025',
+      endDate: '16 Dec 2025',
+      duration: '5 Days / 4 Nights',
+      style: 'Family',
+      tourists: 4,
+      status: 'Active',
+      tripHealth: 82,
+      budgetUsed: 14200,
+      budgetTotal: 36000,
+      hotelName: 'Mayfair Beach Resort',
+      hotelRating: 4.8,
+      nextActivity: 'Konark Sun Temple',
+      nextTime: '09:00 AM, 13 Dec',
+    };
+
+    const DAYS = [
+      {
+        day: 1, date: 'Wed, 12 Dec', label: 'Arrival & Beach Walk',
+        status: 'completed', progress: 100,
+        weather: { icon: 'sun', label: '28°C', color: '#f59e0b' },
+        activities: [
+          { time: '10:00 AM', icon: 'car', type: 'travel', label: 'Airport Pickup', status: 'done', cost: '₹600', tc: '#0ea5e9', note: 'Cab TN-04 • Driver: Rajan +91-9876543210' },
+          { time: '12:30 PM', icon: 'hotel', type: 'hotel', label: 'Check-in: Mayfair Beach Resort', status: 'done', cost: '₹4,500', tc: '#a855f7', note: 'Room 204 – Sea View • Booking #MBR2512' },
+          { time: '04:00 PM', icon: 'sight', type: 'sight', label: 'Puri Beach Evening Walk', status: 'done', cost: 'Free', tc: '#6366f1', note: 'Sunset at 5:40 PM' },
+          { time: '07:30 PM', icon: 'food', type: 'food', label: 'Dinner: Wildgrass Restaurant', status: 'done', cost: '₹800', tc: '#22c55e', note: 'Reservation confirmed • Table for 4' },
+        ],
+      },
+      {
+        day: 2, date: 'Thu, 13 Dec', label: 'Konark Heritage Trail',
+        status: 'inprogress', progress: 25,
+        weather: { icon: 'sun', label: '27°C', color: '#94a3b8' },
+        activities: [
+          { time: '07:00 AM', icon: 'food', type: 'food', label: 'Breakfast at Hotel', status: 'done', cost: 'Free', tc: '#22c55e', note: 'Buffet till 10 AM' },
+          { time: '09:00 AM', icon: 'sight', type: 'sight', label: 'Konark Sun Temple', status: 'current', cost: '₹40', tc: '#f59e0b', note: 'Entry ticket booked • Guide: Arjun' },
+          { time: '11:30 AM', icon: 'sight', type: 'sight', label: 'Chandrabhaga Beach', status: 'upcoming', cost: 'Free', tc: '#6366f1', note: 'Photography spot near temple' },
+          { time: '01:30 PM', icon: 'food', type: 'food', label: 'Lunch: Panthanivas Konark', status: 'upcoming', cost: '₹400', tc: '#22c55e', note: 'Odia thali · Pre-booked' },
+          { time: '04:00 PM', icon: 'sight', type: 'sight', label: 'Ramachandi Temple', status: 'upcoming', cost: 'Free', tc: '#a855f7', note: 'Riverside sunset view' },
+          { time: '08:00 PM', icon: 'food', type: 'food', label: 'Dinner: Seaside Café', status: 'upcoming', cost: '₹700', tc: '#22c55e', note: 'Walk-in — no booking required' },
+        ],
+      },
+      {
+        day: 3, date: 'Fri, 14 Dec', label: 'Chilika Lake & Nature',
+        status: 'upcoming', progress: 0,
+        weather: { icon: 'sun', label: '26°C', color: '#f59e0b' },
+        activities: [
+          { time: '06:30 AM', icon: 'sight', type: 'sight', label: 'Chilika Lake Boat Safari', status: 'upcoming', cost: '₹1,200', tc: '#22c55e', note: 'Boat for 4 • Meet at Satapada ghat' },
+          { time: '10:00 AM', icon: 'sight', type: 'sight', label: 'Nalabana Bird Sanctuary', status: 'upcoming', cost: '₹50', tc: '#0ea5e9', note: 'Binoculars available on rent' },
+          { time: '12:30 PM', icon: 'food', type: 'food', label: 'Lunch: Chilika Dhaba', status: 'upcoming', cost: '₹500', tc: '#22c55e', note: 'Fresh catch, lakeside dining' },
+          { time: '03:00 PM', icon: 'sight', type: 'sight', label: 'Satapada Dolphin Point', status: 'upcoming', cost: '₹800', tc: '#0ea5e9', note: 'Boat ride to spot Irrawaddy dolphins' },
+        ],
+      },
+      {
+        day: 4, date: 'Sat, 15 Dec', label: 'Bhubaneswar Temple Circuit',
+        status: 'upcoming', progress: 0,
+        weather: { icon: 'rain', label: '24°C', color: '#0ea5e9' },
+        activities: [
+          { time: '08:00 AM', icon: 'sight', type: 'sight', label: 'Lingaraj Temple Complex', status: 'upcoming', cost: 'Free', tc: '#a855f7', note: 'Non-Hindu entry restricted · Early visit recommended' },
+          { time: '10:30 AM', icon: 'sight', type: 'sight', label: 'Odisha State Museum', status: 'upcoming', cost: '₹20', tc: '#6366f1', note: 'Open 10 AM – 5 PM' },
+          { time: '01:00 PM', icon: 'food', type: 'food', label: 'Lunch: Dalma Restaurant', status: 'upcoming', cost: '₹450', tc: '#22c55e', note: 'Veg-only Odia cuisine' },
+          { time: '03:30 PM', icon: 'sight', type: 'sight', label: 'Dhauli Shanti Stupa', status: 'upcoming', cost: 'Free', tc: '#f59e0b', note: 'Buddhist peace pagoda – hilltop views' },
+          { time: '06:00 PM', icon: 'sight', type: 'sight', label: 'Ekamra Haat Craft Market', status: 'upcoming', cost: '—', tc: '#f43f5e', note: 'Closes 9 PM • Cash preferred' },
+          { time: '08:30 PM', icon: 'food', type: 'food', label: 'Dinner: Mayfair Lagoon', status: 'upcoming', cost: '₹1,200', tc: '#22c55e', note: 'Fine dining – prior reservation advised' },
+        ],
+      },
+      {
+        day: 5, date: 'Sun, 16 Dec', label: 'Departure Day',
+        status: 'upcoming', progress: 0,
+        weather: { icon: 'sun', label: '28°C', color: '#f59e0b' },
+        activities: [
+          { time: '08:00 AM', icon: 'food', type: 'food', label: 'Final Breakfast', status: 'upcoming', cost: 'Free', tc: '#22c55e', note: 'Buffet at hotel' },
+          { time: '10:00 AM', icon: 'hotel', type: 'hotel', label: 'Check-out', status: 'upcoming', cost: 'Free', tc: '#a855f7', note: 'Late check-out allowed till 12 PM' },
+          { time: '12:00 PM', icon: 'sight', type: 'sight', label: 'Last Souvenir Shopping', status: 'upcoming', cost: '—', tc: '#f43f5e', note: 'Puri market · Pattachitra paintings' },
+          { time: '03:00 PM', icon: 'car', type: 'travel', label: 'Transfer to Airport', status: 'upcoming', cost: '₹600', tc: '#0ea5e9', note: 'Pre-booked cab · Flight at 6 PM' },
+        ],
+      },
+    ];
+
+    const ALERTS = [
+      { type: 'High', icon: 'alert', title: 'Heavy Rainfall Warning', loc: 'Puri Beach', date: '13 Dec, 6 AM – 10 AM', color: '#f43f5e', action: 'View Alternatives' },
+      { type: 'Medium', icon: 'alert', title: 'Road Work – Minor Delay', loc: 'Konark Highway', date: '13 Dec all day', color: '#f59e0b', action: 'View Route' },
+      { type: 'Low', icon: 'info', title: 'Museum closed on Mondays', loc: 'Odisha Museum', date: '15 Dec', color: '#6366f1', action: 'Reschedule' },
+    ];
+
+    const BUDGET_ROWS = [
+      { label: 'Accommodation', total: '₹18,000', spent: '₹4,500', pct: 25, color: '#a855f7' },
+      { label: 'Food & Dining', total: '₹6,850', spent: '₹1,600', pct: 23, color: '#22c55e' },
+      { label: 'Sightseeing', total: '₹5,200', spent: '₹640', pct: 12, color: '#f59e0b' },
+      { label: 'Transport', total: '₹3,600', spent: '₹600', pct: 17, color: '#0ea5e9' },
+      { label: 'Shopping', total: '₹2,350', spent: '₹0', pct: 0, color: '#f43f5e' },
+    ];
+
+    const typeColor = { travel: '#0ea5e9', hotel: '#a855f7', food: '#22c55e', sight: '#f59e0b' };
+
+    const statusStyle = {
+      done: { label: 'Done', bg: '#22c55e20', color: '#22c55e' },
+      current: { label: 'Now', bg: '#6366f120', color: '#818cf8' },
+      upcoming: { label: 'Upcoming', bg: '#1f2b45', color: '#64748b' },
+    };
+
+    /* ── Sub-components ──────────────────────────────────────── */
+    const StatPill = ({ icon, color, label, val }) => (
+      <div className="card rounded-xl p-4 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: color + '20', color }}>
+          <Icon d={I[icon]} className="w-4 h-4" />
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-500">{label}</p>
+          <p className="text-sm font-bold text-white">{val}</p>
+        </div>
+      </div>
+    );
+
+    /* ── Day Timeline Panel ──────────────────────────────────── */
+    const DayPanel = ({ d, expanded, onToggle }) => {
+      const statusColors = { completed: '#22c55e', inprogress: '#6366f1', upcoming: '#334155' };
+      const statusLabels = { completed: 'Completed', inprogress: 'In Progress', upcoming: 'Upcoming' };
+      const sc = statusColors[d.status];
+
+      return (
+        <div className={`card rounded-xl overflow-hidden day-card transition-all ${expanded ? 'active-day' : ''}`}>
+          {/* Day header */}
+          <button onClick={onToggle}
+            className="w-full flex items-center gap-4 p-4 text-left hover:bg-white/[0.02] transition">
+            {/* Day number */}
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-bold text-sm"
+              style={{ background: sc + '20', color: sc }}>
+              D{d.day}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-white font-semibold text-sm">{d.label}</p>
+                <span className="chip text-[10px] px-2 py-0.5 font-semibold"
+                  style={{ background: sc + '20', color: sc }}>
+                  {statusLabels[d.status]}
+                </span>
+                {d.status === 'inprogress' && (
+                  <span className="chip text-[10px] px-2 py-0.5 font-semibold bg-indigo-500/20 text-indigo-400 pulse">
+                    ● LIVE
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-xs text-slate-500">{d.date}</span>
+                <div className="flex items-center gap-1">
+                  <Icon d={I[d.weather.icon]} className="w-3 h-3" style={{ color: d.weather.color }} />
+                  <span className="text-xs" style={{ color: d.weather.color }}>{d.weather.label}</span>
+                </div>
+              </div>
+            </div>
+            {/* Progress bar */}
+            <div className="w-24 shrink-0">
+              <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+                <span>Progress</span><span>{d.progress}%</span>
+              </div>
+              <div className="h-1.5 bg-panel2 rounded-full overflow-hidden">
+                <div className="h-full rounded-full progress-fill"
+                  style={{ width: d.progress + '%', background: sc }} />
+              </div>
+            </div>
+            <Icon d={I.chevron} className={`w-4 h-4 text-slate-500 transition-transform shrink-0 ${expanded ? 'rotate-90' : ''}`} />
+          </button>
+
+          {/* Activities list */}
+          {expanded && (
+            <div className="border-t border-line">
+              {d.activities.map((act, i) => {
+                const bg = typeColor[act.type] || '#6366f1';
+                const ss = statusStyle[act.status];
+                return (
+                  <div key={i} className="act-row flex items-start gap-3 px-4 py-3 border-b border-line/50 last:border-0">
+                    {/* Timeline dot */}
+                    <div className="flex flex-col items-center mt-1 shrink-0" style={{ width: 20 }}>
+                      <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
+                        style={act.status === 'done'
+                          ? { background: '#22c55e', borderColor: '#22c55e' }
+                          : act.status === 'current'
+                            ? { background: '#6366f1', borderColor: '#6366f1' }
+                            : { background: 'transparent', borderColor: '#334155' }}>
+                        {act.status === 'done' && <Icon d={I.check} className="w-2.5 h-2.5 text-white" />}
+                        {act.status === 'current' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      {i < d.activities.length - 1 && (
+                        <div className="w-0.5 flex-1 mt-1" style={{ minHeight: 16, background: '#1f2b45' }} />
+                      )}
+                    </div>
+
+                    {/* Icon */}
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                      style={{ background: bg + '20' }}>
+                      <Icon d={I[act.icon]} className="w-3.5 h-3.5" style={{ color: bg }} />
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 flex-wrap">
+                        <div>
+                          <p className={`text-sm font-medium ${act.status === 'upcoming' ? 'text-slate-400' : 'text-white'}`}>
+                            {act.label}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">{act.note}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="chip text-[10px] px-2 py-0.5 font-semibold"
+                            style={{ background: ss.bg, color: ss.color }}>{ss.label}</span>
+                          <span className="text-indigo-300 text-xs font-bold">{act.cost}</span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-slate-600 mt-1 block">{act.time}</span>
+                    </div>
+
+                    {/* Actions */}
+                    {act.status !== 'done' && (
+                      <div className="flex items-center gap-1 shrink-0 mt-1">
+                        <button className="p-1.5 rounded-lg hover:bg-white/5 transition" title="Edit">
+                          <Icon d={I.edit} className="w-3 h-3 text-slate-500 hover:text-slate-300" />
+                        </button>
+                        <button className="p-1.5 rounded-lg hover:bg-white/5 transition" title="Swap">
+                          <Icon d={I.swap} className="w-3 h-3 text-slate-500 hover:text-slate-300" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    /* ── Main Component ──────────────────────────────────────── */
+    function CurrentItinerary() {
+      const [expanded, setExpanded] = useState({ 1: false, 2: true, 3: false, 4: false, 5: false });
+      const [activeTab, setActiveTab] = useState('timeline'); // timeline | budget | alerts
+
+      const toggle = d => setExpanded(prev => ({ ...prev, [d]: !prev[d] }));
+      const spentPct = Math.round((TRIP.budgetUsed / TRIP.budgetTotal) * 100);
+
+      return (
+        <div className="flex min-h-screen">
+          <Sidebar />
+
+          <main className="flex-1 ml-60 p-6 min-h-screen">
+
+            {/* Topbar */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="relative w-80">
+                <Icon d={I.search} className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
+                <input placeholder="Search activities, places…"
+                  className="w-full rounded-lg pl-9 pr-3 py-2 text-sm" />
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="relative cursor-pointer">
+                  <Icon d={I.bell} className="w-5 h-5 text-slate-400" />
+                  <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center">3</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <img className="w-8 h-8 rounded-full" src="https://i.pravatar.cc/40?img=5" alt="avatar" />
+                  <span className="text-sm text-slate-300">Hello, Traveler!</span>
+                </div>
+                <button className="text-xs text-slate-400 hover:text-white border border-line rounded-lg px-3 py-1.5 transition">
+                  Switch Role
+                </button>
+              </div>
+            </div>
+
+            {/* Page Header */}
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h1 className="text-xl font-bold text-white flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-lg bg-indigo-600/30 flex items-center justify-center">
+                    <Icon d={I.report} className="w-4 h-4 text-indigo-400" />
+                  </span>
+                  Current Itinerary 🗺️
+                </h1>
+                <p className="text-slate-500 text-sm mt-0.5">
+                  {TRIP.destination} · {TRIP.startDate} – {TRIP.endDate} · {TRIP.duration}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Live badge */}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                  style={{ background: '#6366f110', border: '1px solid #6366f130' }}>
+                  <span className="w-2 h-2 rounded-full bg-indigo-400 pulse" />
+                  <span className="text-indigo-400 text-xs font-semibold">Day 2 – In Progress</span>
+                </div>
+                <button className="flex items-center gap-1.5 border border-line text-slate-400 hover:text-white text-xs px-3 py-2 rounded-lg transition">
+                  <Icon d={I.share} className="w-3.5 h-3.5" /> Share
+                </button>
+                <button className="flex items-center gap-1.5 border border-line text-slate-400 hover:text-white text-xs px-3 py-2 rounded-lg transition">
+                  <Icon d={I.dl} className="w-3.5 h-3.5" /> Download
+                </button>
+                <button className="flex items-center gap-1.5 text-white text-xs font-semibold px-4 py-2 rounded-lg transition"
+                  style={{ background: 'linear-gradient(135deg,#6366f1,#818cf8)' }}>
+                  <Icon d={I.edit} className="w-3.5 h-3.5" /> Edit Itinerary
+                </button>
+              </div>
+            </div>
+
+            {/* Stat Strip */}
+            <div className="grid grid-cols-5 gap-3 mb-5">
+              <StatPill icon="pin" color="#6366f1" label="Destination" val={TRIP.destination} />
+              <StatPill icon="clock" color="#0ea5e9" label="Duration" val={TRIP.duration} />
+              <StatPill icon="users" color="#a855f7" label="Tourists" val={`${TRIP.tourists} Members`} />
+              <StatPill icon="hotel" color="#f59e0b" label="Staying At" val={TRIP.hotelName} />
+              <StatPill icon="shield" color="#22c55e" label="Trip Health" val={`${TRIP.tripHealth}% Good`} />
+            </div>
+
+            {/* Trip progress bar */}
+            <div className="card rounded-xl p-4 mb-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Icon d={I.impact} className="w-4 h-4 text-indigo-400" />
+                  <p className="text-white font-semibold text-sm">Trip Progress</p>
+                </div>
+                <span className="text-indigo-400 text-sm font-bold">Day 2 of 5 · 40%</span>
+              </div>
+              <div className="flex gap-1.5">
+                {DAYS.map(d => (
+                  <div key={d.day} className="flex-1">
+                    <div className="h-2 rounded-full overflow-hidden"
+                      style={{ background: '#1f2b45' }}>
+                      <div className="h-full rounded-full progress-fill"
+                        style={{
+                          width: d.progress + '%',
+                          background: d.status === 'completed' ? '#22c55e' : d.status === 'inprogress' ? '#6366f1' : '#1f2b45'
+                        }} />
+                    </div>
+                    <p className="text-[10px] text-slate-600 mt-1 text-center">D{d.day}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-line">
+                <div className="flex items-center gap-4 text-xs text-slate-400">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />Completed</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-500 pulse" />In Progress</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-700" />Upcoming</span>
+                </div>
+                <div className="text-xs text-slate-400 flex items-center gap-1">
+                  <Icon d={I.clock} className="w-3.5 h-3.5 text-indigo-400" />
+                  Next: <span className="text-white font-medium ml-1">{TRIP.nextActivity}</span>
+                  <span className="text-slate-600 ml-1">· {TRIP.nextTime}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-2 mb-4">
+              {[
+                { key: 'timeline', icon: 'clock', label: 'Day Timeline' },
+                { key: 'budget', icon: 'impact', label: 'Budget Tracker' },
+                { key: 'alerts', icon: 'alert', label: 'Disruption Alerts' },
+              ].map(t => (
+                <button key={t.key} onClick={() => setActiveTab(t.key)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === t.key ? 'tab-active' : 'tab-inactive card'
+                    }`}>
+                  <Icon d={I[t.icon]} className="w-4 h-4" />
+                  {t.label}
+                  {t.key === 'alerts' && (
+                    <span className="bg-rose-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center">3</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* ── TAB: TIMELINE ── */}
+            {activeTab === 'timeline' && (
+              <div className="grid grid-cols-3 gap-4 fade-in">
+                {/* Day accordion — 2 cols */}
+                <div className="col-span-2 space-y-3">
+                  {DAYS.map(d => (
+                    <DayPanel key={d.day} d={d} expanded={!!expanded[d.day]} onToggle={() => toggle(d.day)} />
+                  ))}
+                </div>
+
+                {/* Right panel */}
+                <div className="space-y-4">
+                  {/* Hotel card */}
+                  <div className="card rounded-xl overflow-hidden">
+                    <img
+                      src="https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=400"
+                      alt="Mayfair Beach Resort"
+                      className="w-full h-32 object-cover"
+                    />
+                    <div className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-white font-semibold text-sm">Mayfair Beach Resort</p>
+                          <p className="text-slate-500 text-xs mt-0.5">Puri, Odisha · Sea View</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Icon d={I.star} className="w-3.5 h-3.5 text-amber-400" />
+                          <span className="text-amber-400 text-xs font-bold">4.8</span>
+                        </div>
+                      </div>
+                      <div className="mt-3 space-y-1.5">
+                        {[
+                          { label: 'Check-in', val: '12 Dec 2025, 12:30 PM' },
+                          { label: 'Check-out', val: '16 Dec 2025, 10:00 AM' },
+                          { label: 'Room', val: '204 – Deluxe Sea View' },
+                          { label: 'Booking #', val: 'MBR2512' },
+                        ].map(({ label, val }, i) => (
+                          <div key={i} className="flex justify-between text-xs">
+                            <span className="text-slate-500">{label}</span>
+                            <span className="text-slate-300 font-medium">{val}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <button className="mt-3 w-full text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 rounded-lg py-1.5 transition">
+                        View Hotel Details
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick actions */}
+                  <div className="card rounded-xl p-4">
+                    <p className="text-white font-semibold text-sm mb-3">Quick Actions</p>
+                    <div className="space-y-2">
+                      {[
+                        { label: 'Add Activity', icon: 'plus', color: '#6366f1' },
+                        { label: 'View on Map', icon: 'map', color: '#0ea5e9' },
+                        { label: 'Set Alert', icon: 'bell', color: '#f59e0b' },
+                        { label: 'Alternative Routes', icon: 'swap', color: '#a855f7' },
+                        { label: 'Contact Tour Guide', icon: 'users', color: '#22c55e' },
+                        { label: 'Emergency Help', icon: 'alert', color: '#f43f5e' },
+                      ].map(({ label, icon, color }, i) => (
+                        <button key={i}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white border border-line hover:border-slate-600 transition-all text-left">
+                          <Icon d={I[icon]} className="w-3.5 h-3.5 shrink-0" style={{ color }} />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Weather forecast */}
+                  <div className="card rounded-xl p-4">
+                    <p className="text-white font-semibold text-sm mb-3 flex items-center gap-1.5">
+                      <Icon d={I.sun} className="w-3.5 h-3.5 text-amber-400" /> 5-Day Forecast
+                    </p>
+                    <div className="space-y-2">
+                      {DAYS.map(d => (
+                        <div key={d.day} className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500 w-16">{d.date.split(', ')[1]}</span>
+                          <div className="flex items-center gap-1">
+                            <Icon d={I[d.weather.icon]} className="w-3.5 h-3.5" style={{ color: d.weather.color }} />
+                            <span style={{ color: d.weather.color }}>{d.weather.label}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── TAB: BUDGET ── */}
+            {activeTab === 'budget' && (
+              <div className="grid grid-cols-3 gap-4 fade-in">
+                <div className="col-span-2 space-y-4">
+                  {/* Total card */}
+                  <div className="card rounded-xl p-5"
+                    style={{ boxShadow: '0 0 0 1px #6366f115' }}>
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <p className="text-slate-400 text-sm">Total Budget</p>
+                        <p className="text-3xl font-bold text-white mt-1">₹{TRIP.budgetTotal.toLocaleString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-slate-400 text-sm">Spent So Far</p>
+                        <p className="text-2xl font-bold text-rose-400 mt-1">₹{TRIP.budgetUsed.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    {/* Big progress */}
+                    <div className="h-3 bg-panel2 rounded-full overflow-hidden mb-2">
+                      <div className="h-full rounded-full progress-fill"
+                        style={{ width: spentPct + '%', background: 'linear-gradient(90deg,#6366f1,#a855f7)' }} />
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-500">
+                      <span>{spentPct}% spent</span>
+                      <span>₹{(TRIP.budgetTotal - TRIP.budgetUsed).toLocaleString()} remaining</span>
+                    </div>
+                  </div>
+
+                  {/* Category breakdown */}
+                  <div className="card rounded-xl p-5">
+                    <p className="text-white font-semibold text-sm mb-4">Category Breakdown</p>
+                    <div className="space-y-4">
+                      {BUDGET_ROWS.map(({ label, total, spent, pct, color }, i) => (
+                        <div key={i}>
+                          <div className="flex items-center justify-between text-xs mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                              <span className="text-slate-300 font-medium">{label}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-rose-400 font-medium">{spent}</span>
+                              <span className="text-slate-600">/</span>
+                              <span className="text-slate-400">{total}</span>
+                            </div>
+                          </div>
+                          <div className="h-2 bg-panel2 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full progress-fill"
+                              style={{ width: pct + '%', background: color }} />
+                          </div>
+                          <p className="text-[10px] text-slate-600 text-right mt-0.5">{pct}% used</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Daily spend log */}
+                  <div className="card rounded-xl p-5">
+                    <p className="text-white font-semibold text-sm mb-4">Daily Spend Log</p>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-slate-500 text-left border-b border-line">
+                          <th className="pb-2">Day</th>
+                          <th className="pb-2">Activities</th>
+                          <th className="pb-2">Spent</th>
+                          <th className="pb-2">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { day: 'Day 1 · 12 Dec', acts: 4, spent: '₹5,900', status: 'done', sc: '#22c55e' },
+                          { day: 'Day 2 · 13 Dec', acts: 6, spent: '₹1,140', status: 'ongoing', sc: '#6366f1' },
+                          { day: 'Day 3 · 14 Dec', acts: 4, spent: '—', status: 'upcoming', sc: '#334155' },
+                          { day: 'Day 4 · 15 Dec', acts: 6, spent: '—', status: 'upcoming', sc: '#334155' },
+                          { day: 'Day 5 · 16 Dec', acts: 4, spent: '—', status: 'upcoming', sc: '#334155' },
+                        ].map((r, i) => (
+                          <tr key={i} className="border-b border-line/50 last:border-0">
+                            <td className="py-2.5 text-slate-300">{r.day}</td>
+                            <td className="py-2.5 text-slate-500">{r.acts} items</td>
+                            <td className="py-2.5 font-semibold" style={{ color: r.spent === '—' ? '#334155' : '#f43f5e' }}>{r.spent}</td>
+                            <td className="py-2.5">
+                              <span className="chip text-[10px] px-2 py-0.5 font-semibold"
+                                style={{ background: r.sc + '20', color: r.sc }}>
+                                {r.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Right panel */}
+                <div className="space-y-4">
+                  {/* Donut-ish summary */}
+                  <div className="card rounded-xl p-4 text-center">
+                    <p className="text-white font-semibold text-sm mb-3">Spend Summary</p>
+                    <div className="relative w-28 h-28 mx-auto mb-4">
+                      <svg width="112" height="112" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+                        <circle cx="50" cy="50" r="40" fill="none" stroke="#1f2b45" strokeWidth="10" />
+                        <circle cx="50" cy="50" r="40" fill="none"
+                          stroke="url(#budgGrad)" strokeWidth="10"
+                          strokeLinecap="round"
+                          strokeDasharray={`${2 * Math.PI * 40}`}
+                          strokeDashoffset={`${2 * Math.PI * 40 * (1 - spentPct / 100)}`}
+                          style={{ transition: 'stroke-dashoffset 1s ease' }} />
+                        <defs>
+                          <linearGradient id="budgGrad" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#6366f1" />
+                            <stop offset="100%" stopColor="#f43f5e" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-xl font-bold text-white">{spentPct}%</span>
+                        <span className="text-[10px] text-slate-500">spent</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Total Budget</span>
+                        <span className="text-white font-bold">₹{TRIP.budgetTotal.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Spent</span>
+                        <span className="text-rose-400 font-bold">₹{TRIP.budgetUsed.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between border-t border-line pt-2 mt-1">
+                        <span className="text-slate-400">Remaining</span>
+                        <span className="text-emerald-400 font-bold">₹{(TRIP.budgetTotal - TRIP.budgetUsed).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tips */}
+                  <div className="card rounded-xl p-4">
+                    <p className="text-white font-semibold text-sm mb-3 flex items-center gap-1.5">
+                      <Icon d={I.star} className="w-3.5 h-3.5 text-amber-400" /> Budget Tips
+                    </p>
+                    <div className="space-y-2.5">
+                      {[
+                        { tip: 'You\'re on track — 39% of budget spent on Day 2.', color: '#22c55e' },
+                        { tip: 'Shopping spend is zero — save ₹2,000 for Puri market.', color: '#f59e0b' },
+                        { tip: 'Food is under budget. Try local dhabas to save more.', color: '#0ea5e9' },
+                      ].map(({ tip, color }, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: color }} />
+                          <p className="text-xs text-slate-400">{tip}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── TAB: ALERTS ── */}
+            {activeTab === 'alerts' && (
+              <div className="grid grid-cols-3 gap-4 fade-in">
+                <div className="col-span-2 space-y-3">
+                  {ALERTS.map((a, i) => (
+                    <div key={i} className="card rounded-xl p-4 border"
+                      style={{ borderColor: a.color + '30', background: a.color + '05' }}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                            style={{ background: a.color + '20' }}>
+                            <Icon d={I[a.icon]} className="w-4 h-4" style={{ color: a.color }} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-white font-semibold text-sm">{a.title}</p>
+                              <span className="chip text-[10px] px-2 py-0.5 font-semibold"
+                                style={{ background: a.color + '20', color: a.color }}>
+                                {a.type} Impact
+                              </span>
+                            </div>
+                            <p className="text-slate-500 text-xs mt-1">📍 {a.loc} &nbsp;·&nbsp; 🕐 {a.date}</p>
+                          </div>
+                        </div>
+                        <button className="text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0 transition"
+                          style={{ background: a.color + '20', color: a.color }}>
+                          {a.action}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* All clear row */}
+                  <div className="card rounded-xl p-4" style={{ borderColor: '#22c55e30', background: '#22c55e05' }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-emerald-500/20">
+                        <Icon d={I.check} className="w-4 h-4 text-emerald-400" />
+                      </div>
+                      <div>
+                        <p className="text-emerald-400 font-semibold text-sm">Days 3–5 All Clear</p>
+                        <p className="text-slate-500 text-xs mt-0.5">No alerts for Chilika Lake and Bhubaneswar days at this time.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right */}
+                <div className="space-y-4">
+                  {/* Alert Summary */}
+                  <div className="card rounded-xl p-4">
+                    <p className="text-white font-semibold text-sm mb-3">Alert Summary</p>
+                    <div className="space-y-3">
+                      {[
+                        { label: 'High Impact', count: 1, color: '#f43f5e' },
+                        { label: 'Medium Impact', count: 1, color: '#f59e0b' },
+                        { label: 'Low Impact', count: 1, color: '#6366f1' },
+                      ].map(({ label, count, color }, i) => (
+                        <div key={i} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                            <span className="text-xs text-slate-400">{label}</span>
+                          </div>
+                          <span className="chip text-xs px-2 py-0.5 font-bold"
+                            style={{ background: color + '20', color }}>{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Recommended actions */}
+                  <div className="card rounded-xl p-4">
+                    <p className="text-white font-semibold text-sm mb-3">Recommended Actions</p>
+                    <div className="space-y-2">
+                      {[
+                        { label: 'View Alternative Routes', icon: 'swap', color: '#a855f7' },
+                        { label: 'Check Updated Itinerary', icon: 'report', color: '#6366f1' },
+                        { label: 'Contact Local Guide', icon: 'users', color: '#22c55e' },
+                        { label: 'Enable Notifications', icon: 'bell', color: '#f59e0b' },
+                      ].map(({ label, icon, color }, i) => (
+                        <button key={i}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white border border-line hover:border-slate-600 transition-all text-left">
+                          <Icon d={I[icon]} className="w-3.5 h-3.5 shrink-0" style={{ color }} />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Emergency */}
+                  <div className="card rounded-xl p-4" style={{ borderColor: '#f43f5e20' }}>
+                    <p className="text-rose-400 font-semibold text-sm mb-3 flex items-center gap-1.5">
+                      <Icon d={I.alert} className="w-3.5 h-3.5" /> Emergency Contacts
+                    </p>
+                    <div className="space-y-2.5 text-xs">
+                      {[
+                        { label: 'Tourist Helpline', val: '1800-345-3736' },
+                        { label: 'Local Police', val: '0674-2414070' },
+                        { label: 'Ambulance', val: '108' },
+                        { label: 'Tour Guide (Arjun)', val: '+91 98765 43210' },
+                      ].map(({ label, val }, i) => (
+                        <div key={i} className="flex justify-between">
+                          <span className="text-slate-500">{label}</span>
+                          <span className="text-slate-300 font-medium">{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<CurrentItinerary />);
+  </script>
+</body>
+
+</html>

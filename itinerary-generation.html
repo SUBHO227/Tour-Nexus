@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Itinerary Generation – TRAVEL-X</title>
+  <meta name="description" content="AI-powered itinerary generation for smart tourism on TRAVEL-X platform." />
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#0b1220',
+            panel: '#111a2e',
+            panel2: '#0f1830',
+            line: '#1f2b45'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #0b1220;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: #cbd5e1;
+      min-height: 100vh;
+    }
+
+    .card {
+      background: #111a2e;
+      border: 1px solid #1f2b45;
+    }
+
+    .chip {
+      border-radius: 9999px;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #0b1220;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #1f2b45;
+      border-radius: 3px;
+    }
+
+    @keyframes fadeSlide {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes spin1 {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes progressFill {
+      from {
+        width: 0%;
+      }
+    }
+
+    .fade-in {
+      animation: fadeSlide 0.35s ease both;
+    }
+
+    .spinner {
+      border: 2px solid #1f2b45;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      animation: spin1 0.7s linear infinite;
+    }
+
+    .progress-fill {
+      animation: progressFill 0.8s ease forwards;
+    }
+
+    .activity-card {
+      transition: all 0.18s;
+    }
+
+    .activity-card:hover {
+      border-color: #6366f140;
+      transform: translateX(2px);
+    }
+
+    .tag-btn {
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+
+    .tag-btn:hover {
+      transform: scale(1.04);
+    }
+
+    input[type=range] {
+      accent-color: #6366f1;
+      cursor: pointer;
+    }
+
+    select,
+    input[type=date],
+    input[type=text] {
+      background: #0f1830;
+      border: 1px solid #1f2b45;
+      color: #cbd5e1;
+      outline: none;
+    }
+
+    select:focus,
+    input:focus {
+      border-color: #6366f1;
+    }
+
+    option {
+      background: #111a2e;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    /* ── Icons ────────────────────────────────────────────── */
+    const Icon = ({ d, className = "w-5 h-5", style }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={style}>
+        <path strokeLinecap="round" strokeLinejoin="round" d={d} />
+      </svg>
+    );
+    const I = {
+      map: "M9 20l-6-3V4l6 3 6-3 6 3v13l-6-3-6 3zM9 7v13M15 4v13",
+      report: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M9 13h6M9 17h6M9 9h1",
+      gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09c0 .67.4 1.28 1 1.51.62.25 1.34.12 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.45.48-.58 1.2-.33 1.82.23.6.84 1 1.51 1H21a2 2 0 0 1 0 4h-.09c-.67 0-1.28.4-1.51 1z",
+      alert: "M12 9v4m0 4h.01M10.29 3.86l-8.48 14.7A1 1 0 0 0 2.66 20h18.68a1 1 0 0 0 .85-1.44L13.71 3.86a1 1 0 0 0-1.72 0Z",
+      users: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+      check: "M20 6L9 17l-5-5",
+      plus: "M5 12h14M12 5v14",
+      dl: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
+      share: "M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13",
+      clock: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 6v6l4 2",
+      star: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
+      arrow: "M5 12h14M12 5l7 7-7 7",
+      camera: "M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+      sun: "M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42M12 6a6 6 0 1 0 0 12A6 6 0 0 0 12 6z",
+      rain: "M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9M16 14v6M12 14v6M8 14v6",
+      hotel: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10",
+      food: "M18 8h1a4 4 0 1 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4zM6 1v3M10 1v3M14 1v3",
+      sight: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+      car: "M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-2M14 17H9m-4 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm9 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z",
+      spark: "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+      heart: "M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z",
+      refresh: "M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15",
+      bell: "M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0",
+      search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35",
+      shield: "M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z",
+    };
+
+    /* ── Helpers ────────────────────────────────────────────── */
+    const Badge = ({ text, color }) => (
+      <span className="chip text-[10px] px-2 py-0.5 font-semibold" style={{ background: color + '22', color }}>
+        {text}
+      </span>
+    );
+
+    const Pill = ({ text, active, onClick, color = "#6366f1" }) => (
+      <button onClick={onClick} className="tag-btn chip text-xs px-3 py-1 font-medium border transition-all"
+        style={active
+          ? { background: color + '33', color, borderColor: color + '80' }
+          : { background: 'transparent', color: '#64748b', borderColor: '#1f2b45' }}>
+        {text}
+      </button>
+    );
+
+    /* ── Step indicator ─────────────────────────────────────── */
+    const StepBar = ({ step }) => {
+      const steps = ['Destination', 'Preferences', 'Review', 'Generate'];
+      return (
+        <div className="flex items-center mb-8">
+          {steps.map((label, i) => (
+            <React.Fragment key={i}>
+              <div className="flex flex-col items-center gap-1 shrink-0">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all"
+                  style={step > i + 1
+                    ? { background: '#22c55e', borderColor: '#22c55e', color: '#fff' }
+                    : step === i + 1
+                      ? { background: '#6366f1', borderColor: '#6366f1', color: '#fff' }
+                      : { background: 'transparent', borderColor: '#1f2b45', color: '#64748b' }
+                  }>
+                  {step > i + 1 ? <Icon d={I.check} className="w-3.5 h-3.5" /> : i + 1}
+                </div>
+                <span className="text-[10px] font-medium" style={{
+                  color: step === i + 1 ? '#6366f1' : step > i + 1 ? '#22c55e' : '#64748b'
+                }}>{label}</span>
+              </div>
+              {i < steps.length - 1 && (
+                <div className="flex-1 h-0.5 mx-2 mb-4 rounded"
+                  style={{ background: step > i + 1 ? '#6366f1' : '#1f2b45' }} />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      );
+    };
+
+    /* ── DATA ───────────────────────────────────────────────── */
+    const INTERESTS = ['Beaches', 'Temples', 'Nature', 'Adventure', 'Wildlife', 'History', 'Local Cuisine', 'Shopping', 'Wellness'];
+    const STYLES = ['Solo', 'Couple', 'Family', 'Group', 'Backpacker', 'Luxury'];
+    const PACES = ['Relaxed', 'Moderate', 'Packed'];
+    const TRANSPORTS = ['Flight', 'Train', 'Road Trip', 'Bus'];
+
+    const DESTINATIONS = [
+      { name: 'Puri, Odisha', tag: 'Beach + Culture', color: '#6366f1', img: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=300', rating: 4.8 },
+      { name: 'Manali, Himachal', tag: 'Adventure', color: '#f59e0b', img: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300', rating: 4.7 },
+      { name: 'Jaipur, Rajasthan', tag: 'Heritage', color: '#f43f5e', img: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=300', rating: 4.6 },
+      { name: 'Goa', tag: 'Beach + Leisure', color: '#0ea5e9', img: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=300', rating: 4.9 },
+      { name: 'Coorg, Karnataka', tag: 'Nature', color: '#22c55e', img: 'https://images.unsplash.com/photo-1605649487212-47bdab064df7?w=300', rating: 4.5 },
+      { name: 'Varanasi, UP', tag: 'Spiritual', color: '#a855f7', img: 'https://images.unsplash.com/photo-1561361058-c24e021e4f31?w=300', rating: 4.7 },
+    ];
+
+    const DAYS_DATA = [
+      {
+        day: 1, date: '12 Dec 2025', title: 'Arrival & Beach Walk',
+        weather: { icon: 'sun', label: '28°C Sunny' }, wColor: '#f59e0b',
+        activities: [
+          { time: '10:00 AM', type: 'travel', icon: 'car', label: 'Arrive at Bhubaneswar Airport', sub: 'Pick-up · ~30 min to hotel', cost: '₹600', tag: 'Transfer', tc: '#0ea5e9' },
+          { time: '12:30 PM', type: 'hotel', icon: 'hotel', label: 'Check-in: Mayfair Beach Resort', sub: 'Sea-facing deluxe · Free breakfast', cost: '₹4,500', tag: 'Hotel', tc: '#a855f7' },
+          { time: '04:00 PM', type: 'sight', icon: 'sight', label: 'Puri Beach Evening Walk', sub: 'Sunset at Golden Beach', cost: 'Free', tag: 'Beach', tc: '#6366f1' },
+          { time: '07:30 PM', type: 'food', icon: 'food', label: 'Dinner: Wildgrass Restaurant', sub: 'Odia cuisine · Veg-friendly', cost: '₹800', tag: 'Dinner', tc: '#22c55e' },
+        ], totalCost: '₹5,900'
+      },
+      {
+        day: 2, date: '13 Dec 2025', title: 'Konark Heritage Trail',
+        weather: { icon: 'sun', label: '27°C Partly Cloudy' }, wColor: '#94a3b8',
+        activities: [
+          { time: '07:00 AM', type: 'food', icon: 'food', label: 'Breakfast at Hotel', sub: 'Buffet included', cost: 'Free', tag: 'Breakfast', tc: '#22c55e' },
+          { time: '09:00 AM', type: 'sight', icon: 'sight', label: 'Konark Sun Temple', sub: 'UNESCO Heritage Site · 2 hrs', cost: '₹40', tag: 'Heritage', tc: '#f59e0b' },
+          { time: '11:30 AM', type: 'sight', icon: 'camera', label: 'Chandrabhaga Beach', sub: 'Photography spot', cost: 'Free', tag: 'Beach', tc: '#6366f1' },
+          { time: '01:30 PM', type: 'food', icon: 'food', label: 'Lunch: Panthanivas Konark', sub: 'Local Odia thali', cost: '₹400', tag: 'Lunch', tc: '#22c55e' },
+          { time: '04:00 PM', type: 'sight', icon: 'sight', label: 'Ramachandi Temple', sub: 'Riverside temple & scenic views', cost: 'Free', tag: 'Temple', tc: '#a855f7' },
+          { time: '08:00 PM', type: 'food', icon: 'food', label: 'Dinner: Seaside Café', sub: 'Seafood & local specialties', cost: '₹700', tag: 'Dinner', tc: '#22c55e' },
+        ], totalCost: '₹1,140'
+      },
+      {
+        day: 3, date: '14 Dec 2025', title: 'Chilika Lake & Nature',
+        weather: { icon: 'sun', label: '26°C Clear' }, wColor: '#f59e0b',
+        activities: [
+          { time: '06:30 AM', type: 'sight', icon: 'sight', label: 'Chilika Lake Boat Safari', sub: 'Dolphins · Bird watching', cost: '₹1,200', tag: 'Nature', tc: '#22c55e' },
+          { time: '10:00 AM', type: 'sight', icon: 'sight', label: 'Nalabana Bird Sanctuary', sub: 'Flamingos & migratory birds', cost: '₹50', tag: 'Wildlife', tc: '#0ea5e9' },
+          { time: '12:30 PM', type: 'food', icon: 'food', label: 'Lunch: Chilika Dhaba', sub: 'Fresh catch, lakeside dining', cost: '₹500', tag: 'Lunch', tc: '#22c55e' },
+          { time: '03:00 PM', type: 'sight', icon: 'sight', label: 'Satapada Dolphin Point', sub: 'Boat ride to spot dolphins', cost: '₹800', tag: 'Wildlife', tc: '#0ea5e9' },
+        ], totalCost: '₹2,550'
+      },
+      {
+        day: 4, date: '15 Dec 2025', title: 'Bhubaneswar Temple Circuit',
+        weather: { icon: 'rain', label: '24°C Light Rain' }, wColor: '#0ea5e9',
+        activities: [
+          { time: '08:00 AM', type: 'sight', icon: 'sight', label: 'Lingaraj Temple Complex', sub: '11th-century Shiva temple', cost: 'Free', tag: 'Temple', tc: '#a855f7' },
+          { time: '10:30 AM', type: 'sight', icon: 'sight', label: 'Odisha State Museum', sub: 'Art & tribal exhibits', cost: '₹20', tag: 'Culture', tc: '#6366f1' },
+          { time: '01:00 PM', type: 'food', icon: 'food', label: 'Lunch: Dalma Restaurant', sub: 'Authentic Odia cuisine', cost: '₹450', tag: 'Lunch', tc: '#22c55e' },
+          { time: '03:30 PM', type: 'sight', icon: 'sight', label: 'Dhauli Shanti Stupa', sub: 'Buddhist peace pagoda', cost: 'Free', tag: 'Heritage', tc: '#f59e0b' },
+          { time: '06:00 PM', type: 'sight', icon: 'sight', label: 'Ekamra Haat Craft Market', sub: 'Handloom & pattachitra', cost: '—', tag: 'Shopping', tc: '#f43f5e' },
+          { time: '08:30 PM', type: 'food', icon: 'food', label: 'Dinner: Mayfair Lagoon', sub: 'Fine dining experience', cost: '₹1,200', tag: 'Dinner', tc: '#22c55e' },
+        ], totalCost: '₹1,670'
+      },
+      {
+        day: 5, date: '16 Dec 2025', title: 'Departure Day',
+        weather: { icon: 'sun', label: '28°C Sunny' }, wColor: '#f59e0b',
+        activities: [
+          { time: '08:00 AM', type: 'food', icon: 'food', label: 'Final Breakfast', sub: 'Hotel buffet', cost: 'Free', tag: 'Breakfast', tc: '#22c55e' },
+          { time: '10:00 AM', type: 'hotel', icon: 'hotel', label: 'Check-out', sub: 'Late check-out till 12:00 PM', cost: 'Free', tag: 'Hotel', tc: '#a855f7' },
+          { time: '12:00 PM', type: 'sight', icon: 'sight', label: 'Last Souvenir Shopping', sub: 'Puri market · Pattachitra', cost: '—', tag: 'Shopping', tc: '#f43f5e' },
+          { time: '03:00 PM', type: 'travel', icon: 'car', label: 'Transfer to Airport', sub: '~30 min drive', cost: '₹600', tag: 'Transfer', tc: '#0ea5e9' },
+        ], totalCost: '₹600'
+      },
+    ];
+
+    const BUDGET = [
+      { label: 'Accommodation', amount: '₹18,000', pct: 50, color: '#6366f1' },
+      { label: 'Food & Dining', amount: '₹6,850', pct: 19, color: '#22c55e' },
+      { label: 'Sightseeing', amount: '₹5,200', pct: 15, color: '#f59e0b' },
+      { label: 'Transport', amount: '₹3,600', pct: 10, color: '#0ea5e9' },
+      { label: 'Shopping', amount: '₹2,350', pct: 6, color: '#f43f5e' },
+    ];
+
+    const AI_STEPS = [
+      'Analysing your preferences…',
+      'Scanning destination data…',
+      'Optimising route & timing…',
+      'Checking disruption alerts…',
+      'Curating activity mix…',
+      'Building budget estimate…',
+      'Finalising your itinerary…',
+    ];
+
+    /* ── Sidebar ────────────────────────────────────────────── */
+    const NAV = [
+      ['home', 'Dashboard'], ['users', 'Login / Registration'], ['users', 'Tourist Profile'],
+      ['report', 'Destination & Preferences'], ['report', 'Itinerary Generation'],
+      ['map', 'Interactive Map'], ['report', 'Current Itinerary'], ['alert', 'Disruption Alert'],
+      ['gear', 'Dependency / Impact View'], ['report', 'Alternative Recommendations'], ['report', 'Updated Itinerary'],
+    ];
+
+    const Sidebar = () => (
+      <aside className="w-60 bg-panel border-r border-line flex flex-col py-4 shrink-0 fixed top-0 left-0 h-full z-30 overflow-y-auto">
+        <div className="flex items-center gap-2 px-4 mb-6">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <Icon d={I.map} className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-white text-sm leading-none">TRAVEL-X</p>
+            <p className="text-[10px] text-slate-500">Smart Tourism Platform</p>
+          </div>
+        </div>
+        <p className="px-4 text-[11px] tracking-widest text-slate-500 font-semibold mb-1">TOURIST APP</p>
+        {NAV.map(([icon, label], i) => (
+          <div key={i} className={`flex items-center gap-3 px-4 py-2 mx-2 rounded-lg cursor-pointer text-sm transition-all ${label === 'Itinerary Generation' ? 'bg-indigo-600/90 text-white' : 'text-slate-400 hover:bg-white/5'
+            }`}>
+            <Icon d={I[icon]} className="w-4 h-4" /><span>{label}</span>
+          </div>
+        ))}
+        <div className="mt-auto mx-3 card rounded-lg p-3 mt-4">
+          <p className="text-xs flex items-center gap-1 text-emerald-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />System Status
+          </p>
+          <p className="text-[11px] text-slate-400 mt-1">All Systems Operational</p>
+        </div>
+      </aside>
+    );
+
+    /* ── Step 1: Destination ────────────────────────────────── */
+    const Step1 = ({ form, setForm, onNext }) => {
+      const [q, setQ] = useState('');
+      const filtered = DESTINATIONS.filter(d => d.name.toLowerCase().includes(q.toLowerCase()));
+      return (
+        <div className="fade-in">
+          <h2 className="text-white font-semibold mb-1">Choose your destination</h2>
+          <p className="text-slate-500 text-sm mb-4">Select from popular destinations or search for a custom one.</p>
+          <div className="relative mb-5">
+            <Icon d={I.search} className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search destination…"
+              className="w-full rounded-lg pl-9 pr-3 py-2.5 text-sm" />
+          </div>
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            {filtered.map((d, i) => {
+              const sel = form.destination === d.name;
+              return (
+                <div key={i} onClick={() => setForm({ ...form, destination: d.name })}
+                  className={`card rounded-xl overflow-hidden cursor-pointer transition-all border-2 ${sel ? 'border-indigo-500' : 'border-transparent hover:border-slate-600'
+                    }`} style={sel ? { boxShadow: '0 0 0 1px #6366f180, 0 4px 20px #6366f115' } : {}}>
+                  <div className="relative">
+                    <img src={d.img} alt={d.name} className="w-full h-28 object-cover" />
+                    {sel && (
+                      <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center">
+                        <Icon d={I.check} className="w-3.5 h-3.5 text-white" />
+                      </div>
+                    )}
+                    <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-black/60 to-transparent" />
+                    <span className="absolute bottom-1.5 left-2 text-white text-xs font-semibold">{d.name}</span>
+                  </div>
+                  <div className="p-2.5 flex items-center justify-between">
+                    <Badge text={d.tag} color={d.color} />
+                    <span className="text-amber-400 text-[11px] font-medium">★ {d.rating}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Start Date</label>
+              <input type="date" defaultValue="2025-12-12" className="w-full rounded-lg px-3 py-2 text-sm"
+                onChange={e => setForm({ ...form, startDate: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">End Date</label>
+              <input type="date" defaultValue="2025-12-16" className="w-full rounded-lg px-3 py-2 text-sm"
+                onChange={e => setForm({ ...form, endDate: e.target.value })} />
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end">
+            <button onClick={onNext} disabled={!form.destination}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition">
+              Next: Preferences <Icon d={I.arrow} className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    /* ── Step 2: Preferences ────────────────────────────────── */
+    const Step2 = ({ form, setForm, onNext, onBack }) => {
+      const tog = (key, val) => {
+        const a = form[key] || [];
+        setForm({ ...form, [key]: a.includes(val) ? a.filter(x => x !== val) : [...a, val] });
+      };
+      return (
+        <div className="fade-in">
+          <h2 className="text-white font-semibold mb-1">Set your preferences</h2>
+          <p className="text-slate-500 text-sm mb-5">Help us tailor the perfect itinerary for you.</p>
+
+          <div className="card rounded-xl p-4 mb-4">
+            <p className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+              <Icon d={I.heart} className="w-4 h-4 text-rose-400" /> Interests
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {INTERESTS.map(t => <Pill key={t} text={t} active={(form.interests || []).includes(t)} onClick={() => tog('interests', t)} />)}
+            </div>
+          </div>
+
+          <div className="card rounded-xl p-4 mb-4">
+            <p className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+              <Icon d={I.users} className="w-4 h-4 text-sky-400" /> Travel Style
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {STYLES.map(t => <Pill key={t} text={t} color="#0ea5e9" active={form.style === t} onClick={() => setForm({ ...form, style: t })} />)}
+            </div>
+          </div>
+
+          <div className="card rounded-xl p-4 mb-4">
+            <div className="flex justify-between items-center mb-3">
+              <p className="text-sm font-semibold text-white flex items-center gap-2">
+                <Icon d={I.report} className="w-4 h-4 text-emerald-400" /> Budget
+              </p>
+              <span className="text-indigo-400 text-sm font-bold">₹{(form.budget || 15000).toLocaleString()}</span>
+            </div>
+            <input type="range" min={5000} max={100000} step={1000}
+              value={form.budget || 15000}
+              onChange={e => setForm({ ...form, budget: +e.target.value })}
+              className="w-full" />
+            <div className="flex justify-between text-[11px] text-slate-500 mt-1">
+              <span>₹5,000</span><span>₹1,00,000</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="card rounded-xl p-4">
+              <p className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                <Icon d={I.clock} className="w-4 h-4 text-amber-400" /> Trip Pace
+              </p>
+              <div className="flex flex-col gap-2">
+                {PACES.map(t => <Pill key={t} text={t} color="#f59e0b" active={form.pace === t} onClick={() => setForm({ ...form, pace: t })} />)}
+              </div>
+            </div>
+            <div className="card rounded-xl p-4">
+              <p className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                <Icon d={I.car} className="w-4 h-4 text-sky-400" /> Transport
+              </p>
+              <div className="flex flex-col gap-2">
+                {TRANSPORTS.map(t => {
+                  const a = form.transport || [];
+                  return <Pill key={t} text={t} color="#0ea5e9" active={a.includes(t)}
+                    onClick={() => setForm({ ...form, transport: a.includes(t) ? a.filter(x => x !== t) : [...a, t] })} />;
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-between">
+            <button onClick={onBack} className="text-slate-400 hover:text-white text-sm px-5 py-2.5 rounded-lg border border-line transition">← Back</button>
+            <button onClick={onNext} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition">
+              Next: Review <Icon d={I.arrow} className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    /* ── Step 3: Review ─────────────────────────────────────── */
+    const Step3 = ({ form, onNext, onBack }) => {
+      const rows = [
+        { label: 'Destination', val: form.destination || '—', color: '#6366f1' },
+        { label: 'Dates', val: `${form.startDate || '12 Dec'} → ${form.endDate || '16 Dec'}`, color: '#0ea5e9' },
+        { label: 'Interests', val: (form.interests || ['Beaches', 'Temples']).join(', '), color: '#f59e0b' },
+        { label: 'Style', val: form.style || 'Family', color: '#a855f7' },
+        { label: 'Budget', val: `₹${(form.budget || 15000).toLocaleString()}`, color: '#22c55e' },
+        { label: 'Pace', val: form.pace || 'Moderate', color: '#f43f5e' },
+        { label: 'Transport', val: (form.transport || ['Train']).join(', '), color: '#0ea5e9' },
+      ];
+      return (
+        <div className="fade-in">
+          <h2 className="text-white font-semibold mb-1">Review your inputs</h2>
+          <p className="text-slate-500 text-sm mb-5">Everything look good? Let's generate your itinerary!</p>
+
+          <div className="card rounded-xl p-5 mb-4" style={{ borderColor: '#6366f130' }}>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-600/20">
+                <Icon d={I.spark} className="w-4 h-4 text-indigo-400" />
+              </div>
+              <div>
+                <p className="text-white font-semibold text-sm">AI-Ready Summary</p>
+                <p className="text-slate-500 text-xs">Verified · Ready to generate</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {rows.map(({ label, val, color }, i) => (
+                <div key={i} className="p-3 rounded-lg flex items-start gap-2"
+                  style={{ background: color + '0d', border: `1px solid ${color}20` }}>
+                  <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: color }} />
+                  <div>
+                    <p className="text-[10px] text-slate-500 mb-0.5">{label}</p>
+                    <p className="text-xs font-medium text-slate-200">{val}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl mb-5" style={{ background: '#0f2518', border: '1px solid #22c55e30' }}>
+            <div className="flex items-start gap-3">
+              <Icon d={I.check} className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-emerald-400 text-sm font-semibold mb-0.5">No disruptions detected</p>
+                <p className="text-slate-400 text-xs">Your selected dates & destination are clear. No active alerts.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-between">
+            <button onClick={onBack} className="text-slate-400 hover:text-white text-sm px-5 py-2.5 rounded-lg border border-line transition">← Back</button>
+            <button onClick={onNext}
+              className="flex items-center gap-2 text-white text-sm font-bold px-8 py-2.5 rounded-lg transition shadow-lg shadow-indigo-900/40"
+              style={{ background: 'linear-gradient(135deg,#6366f1,#a855f7)' }}>
+              <Icon d={I.spark} className="w-4 h-4" /> Generate Itinerary
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    /* ── Step 4: AI Generation Animation ───────────────────── */
+    const Step4 = ({ onDone }) => {
+      const [cur, setCur] = useState(0);
+      const pct = Math.round((cur / AI_STEPS.length) * 100);
+      const r = 44;
+
+      useEffect(() => {
+        if (cur >= AI_STEPS.length) { setTimeout(onDone, 500); return; }
+        const t = setTimeout(() => setCur(c => c + 1), 700);
+        return () => clearTimeout(t);
+      }, [cur]);
+
+      return (
+        <div className="flex flex-col items-center justify-center py-14 fade-in">
+          <div className="relative w-32 h-32 mb-6">
+            <svg className="w-32 h-32 -rotate-90" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r={r} fill="none" stroke="#1f2b45" strokeWidth="6" />
+              <circle cx="50" cy="50" r={r} fill="none" stroke="url(#g1)" strokeWidth="6"
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * r}`}
+                strokeDashoffset={`${2 * Math.PI * r * (1 - pct / 100)}`}
+                style={{ transition: 'stroke-dashoffset 0.65s ease' }} />
+              <defs>
+                <linearGradient id="g1" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#6366f1" />
+                  <stop offset="100%" stopColor="#a855f7" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-2xl font-bold text-white">{pct}%</span>
+              <Icon d={I.spark} className="w-4 h-4 text-indigo-400" />
+            </div>
+          </div>
+
+          <p className="text-white font-semibold mb-1">AI is crafting your itinerary</p>
+          <p className="text-slate-400 text-sm mb-6">Powered by TRAVEL-X Intelligence Engine</p>
+
+          <div className="w-full max-w-sm space-y-2">
+            {AI_STEPS.map((s, i) => {
+              const done = i < cur;
+              const active = i === cur;
+              return (
+                <div key={i} className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-all ${done ? 'opacity-50' : active ? 'card' : 'opacity-25'
+                  }`}>
+                  {done
+                    ? <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+                      <Icon d={I.check} className="w-2.5 h-2.5 text-white" />
+                    </div>
+                    : active
+                      ? <div className="spinner shrink-0" />
+                      : <div className="w-4 h-4 rounded-full border border-slate-700 shrink-0" />
+                  }
+                  <span className={`text-xs ${active ? 'text-white font-medium' : 'text-slate-500'}`}>{s}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    };
+
+    /* ── Itinerary Result ───────────────────────────────────── */
+    const ItineraryResult = ({ form, onRegenerate }) => {
+      const [day, setDay] = useState(1);
+      const d = DAYS_DATA.find(x => x.day === day);
+
+      const typeColor = { travel: '#0ea5e9', hotel: '#a855f7', food: '#22c55e', sight: '#f59e0b' };
+
+      return (
+        <div className="fade-in">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                  <Icon d={I.check} className="w-4 h-4 text-emerald-400" />
+                </div>
+                <h2 className="text-white font-bold text-base">Itinerary Generated!</h2>
+              </div>
+              <p className="text-slate-500 text-sm">{form.destination || 'Puri, Odisha'} · 5 Days · {form.style || 'Family'} Trip</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={onRegenerate}
+                className="flex items-center gap-1.5 text-slate-400 hover:text-white border border-line text-xs px-3 py-2 rounded-lg transition">
+                <Icon d={I.refresh} className="w-3.5 h-3.5" /> Regenerate
+              </button>
+              <button className="flex items-center gap-1.5 text-slate-300 hover:text-white border border-line text-xs px-3 py-2 rounded-lg transition">
+                <Icon d={I.share} className="w-3.5 h-3.5" /> Share
+              </button>
+              <button className="flex items-center gap-1.5 text-white text-xs font-semibold px-4 py-2 rounded-lg transition"
+                style={{ background: 'linear-gradient(135deg,#6366f1,#818cf8)' }}>
+                <Icon d={I.dl} className="w-3.5 h-3.5" /> Download PDF
+              </button>
+            </div>
+          </div>
+
+          {/* Summary strip */}
+          <div className="grid grid-cols-4 gap-3 mb-5">
+            {[
+              { icon: I.map, color: '#6366f1', label: 'Destination', val: form.destination || 'Puri, Odisha' },
+              { icon: I.clock, color: '#0ea5e9', label: 'Duration', val: '5 Days / 4 Nights' },
+              { icon: I.report, color: '#22c55e', label: 'Total Budget', val: `₹${(form.budget || 36000).toLocaleString()}` },
+              { icon: I.users, color: '#a855f7', label: 'Travel Style', val: form.style || 'Family' },
+            ].map(({ icon, color, label, val }, i) => (
+              <div key={i} className="card rounded-xl p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: color + '20', color }}>
+                  <Icon d={icon} className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500">{label}</p>
+                  <p className="text-xs font-semibold text-white">{val}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Day tabs */}
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+            {DAYS_DATA.map(x => (
+              <button key={x.day} onClick={() => setDay(x.day)}
+                className={`shrink-0 flex flex-col items-center px-4 py-2 rounded-xl text-xs font-semibold transition-all ${day === x.day ? 'bg-indigo-600 text-white' : 'card text-slate-400 hover:bg-white/5'
+                  }`}>
+                <span className="text-[10px] font-normal opacity-70">Day</span>
+                <span className="text-sm font-bold">{x.day}</span>
+                <span className="text-[10px] opacity-70 mt-0.5">{x.date.split(' ')[0]} {x.date.split(' ')[1]}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Day content */}
+          {d && (
+            <div className="grid grid-cols-3 gap-4">
+              {/* Activities */}
+              <div className="col-span-2 card rounded-xl p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-white font-semibold text-sm">Day {d.day} — {d.title}</p>
+                    <p className="text-slate-500 text-xs">{d.date}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                    style={{ background: d.wColor + '15', border: `1px solid ${d.wColor}30` }}>
+                    <Icon d={I[d.weather.icon]} className="w-3.5 h-3.5" style={{ color: d.wColor }} />
+                    <span className="text-xs font-medium" style={{ color: d.wColor }}>{d.weather.label}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {d.activities.map((act, i) => {
+                    const bg = typeColor[act.type] || '#6366f1';
+                    return (
+                      <div key={i} className="activity-card flex items-start gap-3 p-3 rounded-xl border border-line transition-all">
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ background: bg + '20' }}>
+                          <Icon d={I[act.icon]} className="w-4 h-4" style={{ color: bg }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-white text-sm font-medium">{act.label}</p>
+                              <p className="text-slate-500 text-xs mt-0.5">{act.sub}</p>
+                            </div>
+                            <span className="text-indigo-300 text-xs font-bold shrink-0">{act.cost}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="text-[10px] text-slate-500">{act.time}</span>
+                            <Badge text={act.tag} color={act.tc} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 flex items-center justify-between pt-3 border-t border-line">
+                  <span className="text-slate-500 text-xs">Estimated Day Cost</span>
+                  <span className="text-indigo-400 font-bold text-sm">{d.totalCost}</span>
+                </div>
+              </div>
+
+              {/* Right panel */}
+              <div className="space-y-4">
+                {/* Budget */}
+                <div className="card rounded-xl p-4">
+                  <p className="text-white font-semibold text-sm mb-3">Budget Breakdown</p>
+                  <div className="space-y-3">
+                    {BUDGET.map(({ label, amount, pct, color }, i) => (
+                      <div key={i}>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-slate-400">{label}</span>
+                          <span className="text-slate-300 font-medium">{amount}</span>
+                        </div>
+                        <div className="h-1.5 bg-panel2 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full progress-fill" style={{ width: pct + '%', background: color }} />
+                        </div>
+                        <p className="text-[10px] text-slate-600 text-right mt-0.5">{pct}%</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-line flex justify-between">
+                    <span className="text-slate-400 text-xs">Total Estimate</span>
+                    <span className="text-white font-bold text-sm">₹36,000</span>
+                  </div>
+                </div>
+
+                {/* Tips */}
+                <div className="card rounded-xl p-4">
+                  <p className="text-white font-semibold text-sm mb-3 flex items-center gap-1.5">
+                    <Icon d={I.star} className="w-3.5 h-3.5 text-amber-400" /> Travel Tips
+                  </p>
+                  <div className="space-y-2.5">
+                    {[
+                      { tip: 'Book Mayfair Resort early – fills fast in Dec.', color: '#f59e0b' },
+                      { tip: 'Carry light rain gear for Bhubaneswar day.', color: '#0ea5e9' },
+                      { tip: 'Visit Konark in the early morning for best experience.', color: '#6366f1' },
+                      { tip: 'Carry small change for temple entries & ferries.', color: '#22c55e' },
+                    ].map(({ tip, color }, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: color }} />
+                        <p className="text-xs text-slate-400">{tip}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Quick actions */}
+                <div className="card rounded-xl p-4">
+                  <p className="text-white font-semibold text-sm mb-3">Quick Actions</p>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Save to My Trips', icon: I.heart, color: '#f43f5e' },
+                      { label: 'View on Map', icon: I.map, color: '#6366f1' },
+                      { label: 'Book Hotels', icon: I.hotel, color: '#a855f7' },
+                      { label: 'Set Disruption Alert', icon: I.alert, color: '#f59e0b' },
+                    ].map(({ label, icon, color }, i) => (
+                      <button key={i}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white border border-line hover:border-slate-600 transition-all text-left">
+                        <Icon d={icon} className="w-3.5 h-3.5 shrink-0" style={{ color }} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    /* ── App ────────────────────────────────────────────────── */
+    function App() {
+      const [step, setStep] = useState(1);
+      const [generating, setGenerating] = useState(false);
+      const [done, setDone] = useState(false);
+      const [form, setForm] = useState({
+        destination: 'Puri, Odisha',
+        startDate: '2025-12-12',
+        endDate: '2025-12-16',
+        interests: ['Beaches', 'Temples', 'Nature'],
+        style: 'Family',
+        budget: 36000,
+        pace: 'Moderate',
+        transport: ['Train'],
+      });
+
+      const startGen = () => { setStep(4); setGenerating(true); };
+      const onDone = () => { setGenerating(false); setDone(true); };
+      const onRegen = () => { setDone(false); setStep(1); };
+
+      return (
+        <div className="flex min-h-screen">
+          <Sidebar />
+          <main className="flex-1 ml-60 p-6 min-h-screen">
+            {/* Topbar */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="relative w-80">
+                <Icon d={I.search} className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
+                <input placeholder="Search destinations, attractions…"
+                  className="w-full rounded-lg pl-9 pr-3 py-2 text-sm" />
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="relative cursor-pointer">
+                  <Icon d={I.bell} className="w-5 h-5 text-slate-400" />
+                  <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center">3</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <img className="w-8 h-8 rounded-full" src="https://i.pravatar.cc/40?img=5" alt="avatar" />
+                  <span className="text-sm text-slate-300">Hello, Traveler!</span>
+                </div>
+                <button className="text-xs text-slate-400 hover:text-white border border-line rounded-lg px-3 py-1.5 transition">
+                  Switch Role
+                </button>
+              </div>
+            </div>
+
+            {/* Page title */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-xl font-bold text-white flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-lg bg-indigo-600/30 flex items-center justify-center">
+                    <Icon d={I.report} className="w-4 h-4 text-indigo-400" />
+                  </span>
+                  Itinerary Generation ✈️
+                </h1>
+                <p className="text-slate-500 text-sm mt-0.5">AI-powered trip planning, personalised for you.</p>
+              </div>
+              {done && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                  style={{ background: '#22c55e10', border: '1px solid #22c55e30' }}>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" style={{ animation: 'pulse 1.5s infinite' }} />
+                  <span className="text-emerald-400 text-xs font-semibold">Itinerary Ready</span>
+                </div>
+              )}
+            </div>
+
+            {/* Main wizard card */}
+            <div className="card rounded-2xl p-6" style={{ boxShadow: '0 0 0 1px #6366f120, 0 8px 40px #6366f10a' }}>
+              {!done && !generating && <StepBar step={step} />}
+              {step === 1 && !generating && !done && <Step1 form={form} setForm={setForm} onNext={() => setStep(2)} />}
+              {step === 2 && !generating && !done && <Step2 form={form} setForm={setForm} onNext={() => setStep(3)} onBack={() => setStep(1)} />}
+              {step === 3 && !generating && !done && <Step3 form={form} onNext={startGen} onBack={() => setStep(2)} />}
+              {step === 4 && generating && !done && <Step4 onDone={onDone} />}
+              {done && <ItineraryResult form={form} onRegenerate={onRegen} />}
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+
+</html>

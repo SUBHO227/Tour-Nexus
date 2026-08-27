@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive Destination Map - TRAVEL-X</title>
+    <meta name="description"
+        content="Real-time interactive tourist destination map for Odisha with live risk alerts, route planning, and disruption overlays." />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#0b1220',
+                        panel: '#111a2e',
+                        panel2: '#0f1830',
+                        line: '#1f2b45'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: #0b1220;
+            font-family: Inter, system-ui, sans-serif;
+            color: #e2e8f0;
+        }
+
+        .card {
+            background: #111a2e;
+            border: 1px solid #1f2b45;
+        }
+
+        .chip {
+            border-radius: 9999px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0b1220;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #1f2b45;
+            border-radius: 3px;
+        }
+
+        @keyframes fadeSlide {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeSlide 0.35s ease forwards;
+        }
+
+        /* Map styling */
+        .map-pattern {
+            background-image: radial-gradient(#1f2b45 1.5px, transparent 1.5px);
+            background-size: 24px 24px;
+        }
+
+        .map-node {
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+        }
+
+        .map-node:hover {
+            transform: scale(1.25);
+        }
+
+        .pref-chip {
+            border: 1px solid #1f2b45;
+            transition: all 0.15s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .pref-chip:hover {
+            border-color: #6366f160;
+        }
+
+        .pref-chip.active {
+            border-color: #6366f1;
+            background: #6366f115;
+            color: #818cf8;
+        }
+
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(0.85);
+                opacity: 0.6;
+            }
+
+            100% {
+                transform: scale(2.2);
+                opacity: 0;
+            }
+        }
+
+        .ping-dot {
+            position: relative;
+        }
+
+        .ping-dot::before {
+            content: '';
+            position: absolute;
+            inset: -6px;
+            border-radius: 50%;
+            background: inherit;
+            animation: pulse-ring 2.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+
+        /* Dash animation for active route path */
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -40;
+            }
+        }
+
+        .route-path {
+            stroke-dasharray: 8, 4;
+            animation: dash 2.5s linear infinite;
+        }
+
+        /* Disruption zone overlays */
+        @keyframes alert-glow {
+
+            0%,
+            100% {
+                fill: rgba(244, 63, 94, 0.08);
+                stroke: rgba(244, 63, 94, 0.2);
+            }
+
+            50% {
+                fill: rgba(244, 63, 94, 0.15);
+                stroke: rgba(244, 63, 94, 0.4);
+            }
+        }
+
+        .disruption-zone {
+            animation: alert-glow 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const Icon = ({ d, className = 'w-5 h-5', style }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" style={style}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={d} />
+            </svg>
+        );
+
+        const I = {
+            home: 'M3 12l9-9 9 9M5 10v10h14V10',
+            alert: 'M12 9v4m0 4h.01M10.29 3.86l-8.48 14.7A1 1 0 0 0 2.66 20h18.68a1 1 0 0 0 .85-1.44L13.71 3.86a1 1 0 0 0-1.72 0Z',
+            map: 'M9 20l-6-3V4l6 3 6-3 6 3v13l-6-3-6 3zM9 7v13M15 4v13',
+            users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+            report: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M9 13h6M9 17h6',
+            check: 'M20 6L9 17l-5-5',
+            pin: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+            swap: 'M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4',
+            shield: 'M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z',
+            net: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z',
+            star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+            compass: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm-2 8l4-4-2 6-2-2z',
+            info: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 16v-4M12 8h.01',
+            route: 'M9 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 0h6m0 0a2 2 0 1 1 4 0 2 2 0 0 1-4 0zM9 10l3-4 3 4',
+            sun: 'M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41M12 6a6 6 0 1 0 0 12A6 6 0 0 0 12 6z',
+            cloud: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z',
+            clock: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 6v6l4 2',
+        };
+
+        const Sidebar = () => (
+            <aside className="w-60 bg-panel border-r border-line flex flex-col py-4 shrink-0 fixed h-full z-10">
+                <div className="flex items-center gap-2 px-4 mb-8 mt-2">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                        <Icon d={I.map} className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                        <p className="font-bold text-white text-sm leading-none tracking-wide">TRAVEL-X</p>
+                        <p className="text-[10px] text-slate-500 font-medium">Smart Tourism Platform</p>
+                    </div>
+                </div>
+                <div>
+                    <p className="px-4 text-[11px] tracking-widest text-slate-500 font-semibold mb-2">TOURIST APP</p>
+                    {[
+                        ['home', 'Dashboard'],
+                        ['users', 'Tourist Profile'],
+                        ['report', 'Itinerary Generation'],
+                        ['pin', 'Destination & Preferences'],
+                        ['map', 'Interactive Map', true],
+                        ['map', 'Current Itinerary'],
+                        ['alert', 'Disruption Alert'],
+                        ['net', 'Dependency / Impact View'],
+                        ['swap', 'Alternative Recommendations'],
+                        ['edit', 'Updated Itinerary'],
+                    ].map(([icon, label, active], i) => (
+                        <div key={i}
+                            className={`flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg cursor-pointer text-sm font-medium transition-all
+                                ${active ? 'bg-indigo-600/15 text-indigo-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}>
+                            <Icon d={I[icon]} className="w-4 h-4" />
+                            <span>{label}</span>
+                        </div>
+                    ))}
+                </div>
+            </aside>
+        );
+
+        /* ── Destination & Disruption Data ────────────────────────── */
+        const MAP_PLACES = [
+            {
+                id: 'puri', name: 'Puri Beach', type: 'beach', x: 260, y: 380,
+                risk: 'high', riskColor: '#f43f5e',
+                weather: 'Heavy Rain', temp: '24°C',
+                attractions: ['Jagannath Temple', 'Golden Beach', 'Puri Lighthouse'],
+                desc: 'Famous beach destination and pilgrimage hub. Currently facing severe rainfall and coastal warning.',
+                popRating: 4.8, status: 'Restricted Access',
+            },
+            {
+                id: 'konark', name: 'Konark Temple', type: 'heritage', x: 420, y: 320,
+                risk: 'moderate', riskColor: '#f59e0b',
+                weather: 'Partly Cloudy', temp: '26°C',
+                attractions: ['Sun Temple', 'Chandrabhaga Beach', 'Interpretation Centre'],
+                desc: 'UNESCO World Heritage Sun Temple. Approaches from Marine Drive are partially flooded/waterlogged.',
+                popRating: 4.9, status: 'Open (Delays expected)',
+            },
+            {
+                id: 'bhubaneswar', name: 'Bhubaneswar Hub', type: 'city', x: 280, y: 160,
+                risk: 'low', riskColor: '#22c55e',
+                weather: 'Cloudy', temp: '27°C',
+                attractions: ['Lingaraj Temple', 'State Museum', 'Udayagiri Caves'],
+                desc: 'State capital and temple city. Main airport/transit hub. Operations normal; some city delays.',
+                popRating: 4.6, status: 'Normal Operations',
+            },
+            {
+                id: 'chilika', name: 'Chilika Lake', type: 'nature', x: 110, y: 440,
+                risk: 'low', riskColor: '#22c55e',
+                weather: 'Light Rain', temp: '25°C',
+                attractions: ['Satapada Dolphin Point', 'Kalijai Temple', 'Nalbana Bird Sanctuary'],
+                desc: 'Asia\'s largest brackish lagoon. Dolphin boat tours are running at limited capacity due to winds.',
+                popRating: 4.7, status: 'Open',
+            },
+            {
+                id: 'dhauli', name: 'Dhauli Hills', type: 'heritage', x: 295, y: 220,
+                risk: 'low', riskColor: '#22c55e',
+                weather: 'Cloudy', temp: '27°C',
+                attractions: ['Peace Pagoda', 'Ashokan Rock Edicts'],
+                desc: 'Historic hill famous for Ashokan rock inscriptions and Shanti Stupa. Fully open and clear.',
+                popRating: 4.5, status: 'Open',
+            },
+            {
+                id: 'raghurajpur', name: 'Raghurajpur Art Village', type: 'culture', x: 240, y: 300,
+                risk: 'moderate', riskColor: '#f59e0b',
+                weather: 'Rainy', temp: '25°C',
+                attractions: ['Pattachitra Workshops', 'Gotipua Dance Academy'],
+                desc: 'Heritage crafts village. Access roads are muddy and narrow due to rains. Slow traffic.',
+                popRating: 4.8, status: 'Open with Cautions',
+            }
+        ];
+
+        const MAP_ROUTES = [
+            { from: 'bhubaneswar', to: 'puri', via: 'NH-316', dist: '60 km', time: '1h 15m', risk: 'low', path: 'M 280 160 L 295 220 L 240 300 L 260 380' },
+            { from: 'puri', to: 'konark', via: 'Marine Drive', dist: '35 km', time: '50m', risk: 'high', path: 'M 260 380 Q 330 390 420 320' },
+            { from: 'bhubaneswar', to: 'konark', via: 'Pipili-Konark Road', dist: '65 km', time: '1h 30m', risk: 'moderate', path: 'M 280 160 L 295 220 Q 370 240 420 320' },
+            { from: 'puri', to: 'chilika', via: 'Satapada Road', dist: '50 km', time: '1h 10m', risk: 'low', path: 'M 260 380 Q 180 410 110 440' }
+        ];
+
+        const MAP_DISRUPTIONS = [
+            { id: 'disp-1', type: 'heavy-rain', name: 'Rainstorm Warning', location: 'Puri Coastline', details: 'High tides and waterlogging', x: 240, y: 400, r: 80 },
+            { id: 'disp-2', type: 'road-closure', name: 'Marine Drive Flooding', location: 'Puri-Konark Highway', details: 'Water logging over 2 km stretch', x: 340, y: 360, r: 50 },
+        ];
+
+        /* ── Main Component ───────────────────────────────────────────── */
+        const InteractiveMap = () => {
+            const [selectedPlace, setSelectedPlace] = useState(MAP_PLACES[0]);
+            const [filterType, setFilterType] = useState('all');
+            const [filterRisk, setFilterRisk] = useState('all');
+            const [showDisruptions, setShowDisrupt] = useState(true);
+            const [activeRoute, setActiveRoute] = useState(null);
+
+            const filteredPlaces = MAP_PLACES.filter(p => {
+                const matchType = filterType === 'all' || p.type === filterType;
+                const matchRisk = filterRisk === 'all' || p.risk === filterRisk;
+                return matchType && matchRisk;
+            });
+
+            const handlePlaceClick = (place) => {
+                setSelectedPlace(place);
+                // Highlight connected routes
+                const route = MAP_ROUTES.find(r => r.from === place.id || r.to === place.id);
+                setActiveRoute(route || null);
+            };
+
+            return (
+                <div className="flex min-h-screen">
+                    <Sidebar />
+                    <main className="flex-1 ml-60 p-6 min-h-screen">
+
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-6 fade-in">
+                            <div>
+                                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                                    <span className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                                        <Icon d={I.map} className="w-5 h-5 text-indigo-400" />
+                                    </span>
+                                    Interactive Destination Map 🗺️
+                                </h1>
+                                <p className="text-slate-400 text-sm mt-1">
+                                    Real-time safety mapping and route planning across Odisha's main tourism hubs.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 ping-dot shrink-0" />
+                                <span className="text-xs text-slate-400 font-medium">Live Feed Connected</span>
+                            </div>
+                        </div>
+
+                        {/* Filter Bar */}
+                        <div className="card rounded-2xl p-4 mb-6 flex gap-4 items-center justify-between flex-wrap fade-in" style={{ animationDelay: '0.05s' }}>
+                            <div className="flex gap-4 items-center flex-wrap">
+                                <div>
+                                    <span className="text-xs text-slate-500 block mb-1">Filter by Type</span>
+                                    <div className="flex gap-1.5">
+                                        {['all', 'beach', 'heritage', 'nature', 'culture'].map(t => (
+                                            <button key={t} onClick={() => setFilterType(t)}
+                                                className={`chip text-xs px-3 py-1 font-semibold uppercase tracking-wider transition-all
+                                                    ${filterType === t ? 'bg-indigo-600 text-white' : 'bg-panel2 text-slate-400 hover:text-white'}`}>
+                                                {t}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="h-8 w-[1px] bg-line hidden sm:block" />
+                                <div>
+                                    <span className="text-xs text-slate-500 block mb-1">Filter by Risk Level</span>
+                                    <div className="flex gap-1.5">
+                                        {['all', 'low', 'moderate', 'high'].map(r => (
+                                            <button key={r} onClick={() => setFilterRisk(r)}
+                                                className={`chip text-xs px-3 py-1 font-semibold uppercase tracking-wider transition-all
+                                                    ${filterRisk === r ? 'bg-indigo-600 text-white' : 'bg-panel2 text-slate-400 hover:text-white'}`}>
+                                                {r}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <label className="flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
+                                    <input type="checkbox" checked={showDisruptions}
+                                        onChange={e => setShowDisrupt(e.target.checked)}
+                                        className="rounded border-line bg-panel focus:ring-indigo-500 text-indigo-600 w-4 h-4" />
+                                    Show Disruption Alerts
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Grid Workspace */}
+                        <div className="grid grid-cols-12 gap-6 items-start">
+
+                            {/* Left: Canvas Map */}
+                            <div className="col-span-8 card rounded-2xl overflow-hidden relative fade-in" style={{ animationDelay: '0.1s' }}>
+                                <div className="p-4 border-b border-line flex justify-between items-center bg-panel2/50">
+                                    <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                        <Icon d={I.compass} className="w-4 h-4 text-indigo-400 animate-spin" style={{ animationDuration: '6s' }} />
+                                        Odisha Tourist Circuit Map Grid
+                                    </span>
+                                    <span className="text-[10px] text-slate-500">Click a node or route path for full details</span>
+                                </div>
+
+                                <div className="relative w-full h-[500px] bg-panel2/10 map-pattern select-none">
+                                    <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }}>
+                                        {/* Define shadows/grids */}
+                                        <defs>
+                                            <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+                                                <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.5" />
+                                            </filter>
+                                        </defs>
+
+                                        {/* Disruption Zones Overlay */}
+                                        {showDisruptions && MAP_DISRUPTIONS.map(d => (
+                                            <g key={d.id} className="opacity-80">
+                                                <circle cx={d.x} cy={d.y} r={d.r} className="disruption-zone" strokeWidth="2" strokeDasharray="4,4" />
+                                                <text x={d.x} y={d.y - d.r - 5} fill="#f43f5e" className="text-[9px] font-bold" textAnchor="middle">
+                                                    ⚠️ {d.name}
+                                                </text>
+                                            </g>
+                                        ))}
+
+                                        {/* Render Connection Routes */}
+                                        {MAP_ROUTES.map((route, i) => {
+                                            const isSelected = activeRoute && activeRoute.path === route.path;
+                                            const rColor = route.risk === 'high' ? '#f43f5e' : route.risk === 'moderate' ? '#f59e0b' : '#3b82f6';
+                                            return (
+                                                <g key={i} className="cursor-pointer" onClick={() => setActiveRoute(route)}>
+                                                    {/* Glow border for active selection */}
+                                                    {isSelected && (
+                                                        <path d={route.path} fill="none" stroke="#818cf8" strokeWidth="6" opacity="0.4" className="route-path" />
+                                                    )}
+                                                    {/* Main Path Line */}
+                                                    <path d={route.path} fill="none" stroke={rColor} strokeWidth={isSelected ? 4 : 2}
+                                                        className={route.risk === 'high' ? 'route-path' : ''}
+                                                        opacity={isSelected ? 0.9 : 0.4} />
+                                                </g>
+                                            );
+                                        })}
+
+                                        {/* Render Nodes */}
+                                        {filteredPlaces.map(p => {
+                                            const isSelected = selectedPlace.id === p.id;
+                                            return (
+                                                <g key={p.id} transform={`translate(${p.x}, ${p.y})`}
+                                                    className="map-node"
+                                                    onClick={() => handlePlaceClick(p)}>
+                                                    {/* Active ping ring if high risk */}
+                                                    {p.risk === 'high' && showDisruptions && (
+                                                        <circle cx="0" cy="0" r="14" fill="#f43f5e" className="ping-dot opacity-80" />
+                                                    )}
+                                                    {/* Selection ring */}
+                                                    {isSelected && (
+                                                        <circle cx="0" cy="0" r="16" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeDasharray="4,2" />
+                                                    )}
+                                                    {/* Node core circle */}
+                                                    <circle cx="0" cy="0" r="10" fill="#111a2e" stroke={p.riskColor} strokeWidth="3" filter="url(#shadow)" />
+                                                    {/* Label */}
+                                                    <text x="14" y="4" fill={isSelected ? '#fff' : '#94a3b8'}
+                                                        className={`text-[10px] ${isSelected ? 'font-black' : 'font-semibold'}`}
+                                                        style={{ textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
+                                                        {p.name}
+                                                    </text>
+                                                </g>
+                                            );
+                                        })}
+                                    </svg>
+
+                                    {/* Weather Overlays (Floating Labels) */}
+                                    <div className="absolute top-4 left-4 p-3 bg-panel/90 border border-line rounded-xl text-xs space-y-1.5" style={{ zIndex: 2 }}>
+                                        <p className="font-bold text-white mb-2">Map Legend</p>
+                                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400" /> Low Risk / Normal</div>
+                                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Moderate Warning</div>
+                                        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Disrupted / High Risk</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Right: Info Card detail */}
+                            <div className="col-span-4 space-y-4 fade-in" style={{ animationDelay: '0.15s' }}>
+
+                                {/* Node Details Panel */}
+                                <div className="card rounded-2xl p-5"
+                                    style={{ borderColor: selectedPlace.riskColor + '30', boxShadow: `0 8px 30px ${selectedPlace.riskColor}10` }}>
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div>
+                                            <span className="tag-badge uppercase"
+                                                style={{ background: selectedPlace.riskColor + '20', color: selectedPlace.riskColor }}>
+                                                {selectedPlace.type}
+                                            </span>
+                                            <h2 className="text-xl font-black text-white mt-1.5">{selectedPlace.name}</h2>
+                                            <p className="text-xs text-slate-500 mt-0.5">{selectedPlace.status}</p>
+                                        </div>
+                                        <div className="w-10 h-10 rounded-xl bg-panel2 flex items-center justify-center shrink-0">
+                                            {selectedPlace.weather === 'Heavy Rain' ? '⛈️' : selectedPlace.weather === 'Partly Cloudy' ? '🌤️' : '☁️'}
+                                        </div>
+                                    </div>
+
+                                    <p className="text-xs text-slate-300 leading-relaxed mb-4">{selectedPlace.desc}</p>
+
+                                    {/* Weather/Stats grid */}
+                                    <div className="grid grid-cols-2 gap-3 mb-4">
+                                        <div className="bg-panel2/60 border border-line rounded-xl p-3 text-center">
+                                            <p className="text-[10px] text-slate-500">Weather Forecast</p>
+                                            <p className="text-sm font-bold text-white mt-1">{selectedPlace.weather}</p>
+                                            <p className="text-xs text-slate-400 mt-0.5">{selectedPlace.temp}</p>
+                                        </div>
+                                        <div className="bg-panel2/60 border border-line rounded-xl p-3 text-center">
+                                            <p className="text-[10px] text-slate-500">Avg Popular Rating</p>
+                                            <div className="flex items-center justify-center gap-1 mt-1 text-amber-400">
+                                                <span>⭐</span>
+                                                <span className="text-sm font-bold text-white">{selectedPlace.popRating}</span>
+                                            </div>
+                                            <p className="text-[9px] text-slate-500">from 12.4k votes</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Popular spots list */}
+                                    <div className="mb-4">
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Key Attractions</p>
+                                        <div className="space-y-1.5">
+                                            {selectedPlace.attractions.map((att, idx) => (
+                                                <div key={idx} className="flex items-center gap-2 text-xs text-slate-300">
+                                                    <span className="w-1 h-1 rounded-full bg-indigo-400" />
+                                                    {att}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Current Risk Indicator */}
+                                    <div className="p-3.5 rounded-xl flex items-center justify-between border"
+                                        style={{ background: selectedPlace.riskColor + '0d', borderColor: selectedPlace.riskColor + '20' }}>
+                                        <div>
+                                            <p className="text-[10px] text-slate-500">Local Area Risk</p>
+                                            <p className="text-xs font-bold capitalize mt-0.5" style={{ color: selectedPlace.riskColor }}>
+                                                {selectedPlace.risk} Risk Alert
+                                            </p>
+                                        </div>
+                                        <Icon d={I.shield} className="w-5 h-5" style={{ color: selectedPlace.riskColor }} />
+                                    </div>
+                                </div>
+
+                                {/* Active Route Details Panel */}
+                                {activeRoute && (
+                                    <div className="card rounded-2xl p-5 fade-in border-indigo-500/20"
+                                        style={{ background: '#6366f108', borderColor: activeRoute.risk === 'high' ? '#f43f5e30' : '#6366f130' }}>
+                                        <p className="text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 mb-3">
+                                            <Icon d={I.route} className="w-4 h-4 text-indigo-400" />
+                                            Active Route: {activeRoute.via}
+                                        </p>
+                                        <div className="space-y-3 text-xs">
+                                            <div className="flex justify-between items-center py-1.5 border-b border-line">
+                                                <span className="text-slate-400">Total Distance</span>
+                                                <span className="text-white font-bold">{activeRoute.dist}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center py-1.5 border-b border-line">
+                                                <span className="text-slate-400">Travel Duration</span>
+                                                <span className="text-white font-bold">{activeRoute.time}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center py-1.5">
+                                                <span className="text-slate-400">Route Hazard Level</span>
+                                                <span className="font-bold uppercase"
+                                                    style={{ color: activeRoute.risk === 'high' ? '#f43f5e' : activeRoute.risk === 'moderate' ? '#f59e0b' : '#22c55e' }}>
+                                                    {activeRoute.risk} Risk
+                                                </span>
+                                            </div>
+                                            {activeRoute.risk === 'high' && (
+                                                <div className="p-2.5 rounded-lg bg-rose-500/10 text-rose-400 text-[10px] leading-relaxed mt-2 border border-rose-500/20">
+                                                    ⚠️ **Warning:** Heavy flooding and waterlogging reported along the Marine Drive scenic route. Alternates advised.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                        </div>
+
+                    </main>
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<InteractiveMap />);
+    </script>
+</body>
+
+</html>

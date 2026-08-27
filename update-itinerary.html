@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Updated Itinerary - TRAVEL-X</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#0b1220',
+                        panel: '#111a2e',
+                        panel2: '#0f1830',
+                        line: '#1f2b45'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: #0b1220;
+            font-family: Inter, system-ui, sans-serif;
+            color: #e2e8f0;
+        }
+
+        .card {
+            background: #111a2e;
+            border: 1px solid #1f2b45;
+        }
+
+        .chip {
+            border-radius: 9999px;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0b1220; }
+        ::-webkit-scrollbar-thumb { background: #1f2b45; border-radius: 3px; }
+
+        @keyframes fadeSlide {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in { animation: fadeSlide 0.35s ease forwards; }
+
+        @keyframes progressFill {
+            from { width: 0%; }
+            to   { width: var(--pct); }
+        }
+
+        .bar-fill { animation: progressFill 1s ease forwards; }
+
+        .day-card {
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .day-card:hover {
+            border-color: #6366f140;
+        }
+
+        .day-card.expanded {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 1px #6366f115, 0 8px 24px #6366f110;
+        }
+
+        .activity-row {
+            transition: background 0.15s ease;
+        }
+
+        .activity-row:hover {
+            background: #ffffff06;
+        }
+
+        .timeline-dot {
+            position: relative;
+        }
+
+        .timeline-dot::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 100%;
+            width: 2px;
+            height: 16px;
+            background: #1f2b45;
+            transform: translateX(-50%);
+        }
+
+        .timeline-dot:last-child::before { display: none; }
+
+        @keyframes checkPop {
+            0%   { transform: scale(0); opacity: 0; }
+            70%  { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .check-pop { animation: checkPop 0.3s ease forwards; }
+
+        .save-btn {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            box-shadow: 0 4px 14px #6366f130;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .save-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px #6366f140;
+        }
+
+        .tag-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 9999px;
+        }
+
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.5; }
+        }
+
+        .pulse-soft { animation: pulse-soft 2s ease infinite; }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        /* ── Icon ─────────────────────────────────────────────────────── */
+        const Icon = ({ d, className = 'w-5 h-5', style }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" style={style}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={d} />
+            </svg>
+        );
+
+        const I = {
+            home:    'M3 12l9-9 9 9M5 10v10h14V10',
+            alert:   'M12 9v4m0 4h.01M10.29 3.86l-8.48 14.7A1 1 0 0 0 2.66 20h18.68a1 1 0 0 0 .85-1.44L13.71 3.86a1 1 0 0 0-1.72 0Z',
+            map:     'M9 20l-6-3V4l6 3 6-3 6 3v13l-6-3-6 3zM9 7v13M15 4v13',
+            users:   'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+            report:  'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M9 13h6M9 17h6',
+            check:   'M20 6L9 17l-5-5',
+            pin:     'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+            clock:   'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 6v6l4 2',
+            swap:    'M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4',
+            edit:    'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z',
+            trash:   'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6',
+            plus:    'M12 5v14M5 12h14',
+            shield:  'M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z',
+            net:     'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z',
+            impact:  'M3 3v18h18M7 15l4-6 3 4 5-8',
+            save:    'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8',
+            download:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+            info:    'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 16v-4M12 8h.01',
+            refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+            calendar:'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+            star:    'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+            bell:    'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
+        };
+
+        /* ── Sidebar ──────────────────────────────────────────────────── */
+        const Sidebar = () => (
+            <aside className="w-60 bg-panel border-r border-line flex flex-col py-4 shrink-0 fixed h-full z-10">
+                <div className="flex items-center gap-2 px-4 mb-8 mt-2">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                        <Icon d={I.map} className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                        <p className="font-bold text-white text-sm leading-none tracking-wide">TRAVEL-X</p>
+                        <p className="text-[10px] text-slate-500 font-medium">Smart Tourism Platform</p>
+                    </div>
+                </div>
+                <div>
+                    <p className="px-4 text-[11px] tracking-widest text-slate-500 font-semibold mb-2">TOURIST APP</p>
+                    {[
+                        ['home',    'Dashboard'],
+                        ['users',   'Tourist Profile'],
+                        ['report',  'Itinerary Generation'],
+                        ['map',     'Current Itinerary'],
+                        ['alert',   'Disruption Alert'],
+                        ['net',     'Dependency / Impact View'],
+                        ['swap',    'Alternative Recommendations'],
+                        ['edit',    'Updated Itinerary', true],
+                    ].map(([icon, label, active], i) => (
+                        <div key={i}
+                            className={`flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg cursor-pointer text-sm font-medium transition-all
+                                ${active ? 'bg-indigo-600/15 text-indigo-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}>
+                            <Icon d={I[icon]} className="w-4 h-4" />
+                            <span>{label}</span>
+                        </div>
+                    ))}
+                </div>
+            </aside>
+        );
+
+        /* ── DATA ─────────────────────────────────────────────────────── */
+        const TRIP_META = {
+            tourist: 'Rajesh Kumar',
+            id: 'TRV-1001',
+            destination: 'Puri, Odisha',
+            dates: '12 Dec – 16 Dec 2025',
+            duration: '5 Days / 4 Nights',
+            travellers: 2,
+            adoptedAlt: 'Indoor Heritage Day',
+            lastUpdated: '13 Dec 2025, 08:45 AM',
+        };
+
+        const INITIAL_DAYS = [
+            {
+                id: 'd1', day: 'Day 1', date: 'Fri, 12 Dec 2025', theme: 'Arrival & Puri Beach',
+                status: 'completed', badge: ['Completed', '#22c55e'],
+                activities: [
+                    { id: 'a1', time: '02:00 PM', name: 'Arrive at Bhubaneswar Airport', type: 'transit',  cost: '₹0',    status: 'done', note: 'Flight OD-204' },
+                    { id: 'a2', time: '04:00 PM', name: 'Check-in — Mayfair Beach Resort', type: 'hotel', cost: '₹4,500', status: 'done', note: 'Deluxe Sea View Room' },
+                    { id: 'a3', time: '06:00 PM', name: 'Puri Sea Beach Evening Walk',   type: 'activity', cost: 'Free',  status: 'done', note: '' },
+                    { id: 'a4', time: '08:00 PM', name: 'Dinner at Wildgrass Restaurant', type: 'dining',  cost: '₹900',  status: 'done', note: 'Odia Thali' },
+                ],
+            },
+            {
+                id: 'd2', day: 'Day 2', date: 'Sat, 13 Dec 2025', theme: 'Indoor Heritage Day ✦ Updated',
+                status: 'updated', badge: ['Updated', '#6366f1'],
+                changedFrom: 'Konark & Marine Drive',
+                reason: 'Heavy Rainfall + Road Closure',
+                activities: [
+                    { id: 'b1', time: '09:30 AM', name: 'Odisha State Museum, Bhubaneswar', type: 'activity', cost: '₹20',  status: 'upcoming', note: 'Replaced: Konark Temple Visit' },
+                    { id: 'b2', time: '11:30 AM', name: 'Dhauli Peace Pagoda',              type: 'activity', cost: 'Free', status: 'upcoming', note: 'Replaced: Chandrabhaga Beach' },
+                    { id: 'b3', time: '01:00 PM', name: 'Lunch at Dalma Restaurant',        type: 'dining',   cost: '₹450', status: 'upcoming', note: '' },
+                    { id: 'b4', time: '03:00 PM', name: 'Raghurajpur Craft Village',        type: 'activity', cost: '₹30',  status: 'upcoming', note: 'New Addition' },
+                    { id: 'b5', time: '05:30 PM', name: 'Return to Puri Hotel',             type: 'transit',  cost: '₹350', status: 'upcoming', note: '' },
+                ],
+            },
+            {
+                id: 'd3', day: 'Day 3', date: 'Sun, 14 Dec 2025', theme: 'Konark Temple (Rescheduled)',
+                status: 'rescheduled', badge: ['Rescheduled', '#f59e0b'],
+                changedFrom: 'Free Day',
+                reason: 'Konark visit moved from Day 2',
+                activities: [
+                    { id: 'c1', time: '08:00 AM', name: 'Morning Puri Beach Walk',          type: 'activity', cost: 'Free', status: 'upcoming', note: '' },
+                    { id: 'c2', time: '10:00 AM', name: 'Konark Sun Temple',                type: 'activity', cost: '₹40',  status: 'upcoming', note: 'Rescheduled from Day 2' },
+                    { id: 'c3', time: '01:00 PM', name: 'Chandrabhaga Beach',               type: 'activity', cost: 'Free', status: 'upcoming', note: '' },
+                    { id: 'c4', time: '03:30 PM', name: 'Panthanivas Konark Lunch',         type: 'dining',   cost: '₹600', status: 'upcoming', note: '' },
+                    { id: 'c5', time: '06:00 PM', name: 'Return via Marine Drive',          type: 'transit',  cost: '₹120', status: 'upcoming', note: '' },
+                ],
+            },
+            {
+                id: 'd4', day: 'Day 4', date: 'Mon, 15 Dec 2025', theme: 'Bhubaneswar Temples',
+                status: 'confirmed', badge: ['Confirmed', '#22c55e'],
+                activities: [
+                    { id: 'd1', time: '09:00 AM', name: 'Lingaraj Temple (exterior)',       type: 'activity', cost: 'Free', status: 'upcoming', note: '' },
+                    { id: 'd2', time: '11:00 AM', name: 'Mukteshwar Temple & Museum',       type: 'activity', cost: '₹15',  status: 'upcoming', note: '' },
+                    { id: 'd3', time: '01:30 PM', name: 'Lunch at Tangerine 9',             type: 'dining',   cost: '₹700', status: 'upcoming', note: '' },
+                    { id: 'd4i', time: '03:00 PM', name: 'Nandankanan Zoological Park',    type: 'activity', cost: '₹60',  status: 'upcoming', note: '' },
+                    { id: 'd5', time: '06:30 PM', name: 'Return to Puri Hotel',             type: 'transit',  cost: '₹300', status: 'upcoming', note: '' },
+                ],
+            },
+            {
+                id: 'd5', day: 'Day 5', date: 'Tue, 16 Dec 2025', theme: 'Departure',
+                status: 'confirmed', badge: ['Confirmed', '#22c55e'],
+                activities: [
+                    { id: 'e1', time: '08:00 AM', name: 'Hotel Check-out',                  type: 'hotel',   cost: '-',    status: 'upcoming', note: '' },
+                    { id: 'e2', time: '09:00 AM', name: 'Jagannath Temple Darshan',         type: 'activity', cost: 'Free', status: 'upcoming', note: '' },
+                    { id: 'e3', time: '11:30 AM', name: 'Transfer to Bhubaneswar Airport',  type: 'transit', cost: '₹600', status: 'upcoming', note: '' },
+                    { id: 'e4', time: '02:15 PM', name: 'Flight Departure — OD-211',        type: 'transit', cost: '₹0',   status: 'upcoming', note: 'Return flight' },
+                ],
+            },
+        ];
+
+        const TYPE_COLORS = {
+            activity: '#6366f1', transit: '#f59e0b', hotel: '#0ea5e9', dining: '#22c55e',
+        };
+
+        const TYPE_ICONS = {
+            activity: I.pin, transit: I.swap, hotel: I.shield, dining: I.star,
+        };
+
+        /* ── Sub-components ───────────────────────────────────────────── */
+        const StatusBadge = ({ label, color }) => (
+            <span className="tag-badge" style={{ background: color + '20', color }}>
+                {label}
+            </span>
+        );
+
+        const StatCard = ({ icon, label, value, color }) => (
+            <div className="card rounded-xl p-3 flex items-center gap-3 flex-1 min-w-[130px]">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: color + '18' }}>
+                    <Icon d={I[icon]} className="w-4 h-4" style={{ color }} />
+                </div>
+                <div>
+                    <p className="text-[10px] text-slate-500 font-medium">{label}</p>
+                    <p className="text-sm font-black text-white">{value}</p>
+                </div>
+            </div>
+        );
+
+        /* ── Day Card ─────────────────────────────────────────────────── */
+        const DayCard = ({ day, expanded, onToggle, onEdit, saved }) => {
+            const [editActivity, setEditActivity] = useState(null);
+            const [activities, setActivities] = useState(day.activities);
+            const [editNote, setEditNote] = useState('');
+
+            const startEdit = (act) => {
+                setEditActivity(act.id);
+                setEditNote(act.note);
+            };
+
+            const saveEdit = (actId) => {
+                setActivities(prev => prev.map(a => a.id === actId ? { ...a, note: editNote } : a));
+                setEditActivity(null);
+            };
+
+            return (
+                <div className={`day-card card rounded-2xl overflow-hidden ${expanded ? 'expanded' : ''}`}>
+                    {/* Day Header */}
+                    <div className="p-4 flex items-center justify-between cursor-pointer"
+                        onClick={onToggle}
+                        style={{ background: expanded ? day.badge[1] + '08' : 'transparent' }}>
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white font-black text-sm"
+                                style={{ background: day.badge[1] + '25', color: day.badge[1] }}>
+                                {day.day.replace('Day ', '')}
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="text-white font-bold text-sm">{day.day} — {day.theme}</p>
+                                    <StatusBadge label={day.badge[0]} color={day.badge[1]} />
+                                    {day.changedFrom && (
+                                        <span className="tag-badge" style={{ background: '#f43f5e18', color: '#f43f5e' }}>
+                                            Changed from: {day.changedFrom}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
+                                    <Icon d={I.calendar} className="w-3 h-3" /> {day.date}
+                                    {day.reason && (
+                                        <span className="text-amber-400 ml-2">⚠ {day.reason}</span>
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-[11px] text-slate-500">{activities.length} activities</span>
+                            <Icon d={expanded ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'} className="w-4 h-4 text-slate-400" />
+                        </div>
+                    </div>
+
+                    {/* Expanded Activities */}
+                    {expanded && (
+                        <div className="border-t border-line px-4 pb-4 pt-3">
+                            <div className="space-y-2">
+                                {activities.map((act, i) => (
+                                    <div key={act.id}
+                                        className="activity-row rounded-xl p-3 flex items-start gap-3 group"
+                                        style={{ background: '#0f1830', border: '1px solid #1f2b45' }}>
+
+                                        {/* Type dot */}
+                                        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                                            style={{ background: (TYPE_COLORS[act.type] || '#6366f1') + '20' }}>
+                                            <Icon d={TYPE_ICONS[act.type] || I.pin} className="w-3.5 h-3.5"
+                                                style={{ color: TYPE_COLORS[act.type] || '#6366f1' }} />
+                                        </div>
+
+                                        {/* Content */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <p className="text-sm text-white font-medium">{act.name}</p>
+                                                {act.note && (
+                                                    <span className="tag-badge" style={{ background: '#6366f118', color: '#818cf8' }}>
+                                                        {act.note}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-3 mt-1">
+                                                <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                                                    <Icon d={I.clock} className="w-3 h-3" /> {act.time}
+                                                </span>
+                                                <span className="text-[11px] font-semibold"
+                                                    style={{ color: TYPE_COLORS[act.type] || '#6366f1' }}>
+                                                    {act.cost}
+                                                </span>
+                                            </div>
+                                            {/* Inline edit note */}
+                                            {editActivity === act.id && (
+                                                <div className="mt-2 flex gap-2">
+                                                    <input
+                                                        value={editNote}
+                                                        onChange={e => setEditNote(e.target.value)}
+                                                        placeholder="Add a note..."
+                                                        className="flex-1 bg-bg text-white text-xs px-3 py-1.5 rounded-lg border border-line focus:outline-none focus:border-indigo-500"
+                                                    />
+                                                    <button onClick={() => saveEdit(act.id)}
+                                                        className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-semibold">
+                                                        Save
+                                                    </button>
+                                                    <button onClick={() => setEditActivity(null)}
+                                                        className="text-xs px-3 py-1.5 rounded-lg border border-line text-slate-400">
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => startEdit(act)}
+                                                className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-indigo-400 hover:bg-indigo-400/10 transition-all">
+                                                <Icon d={I.edit} className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Add note CTA */}
+                            <button className="mt-3 flex items-center gap-2 text-xs text-slate-500 hover:text-indigo-400 transition-colors">
+                                <Icon d={I.plus} className="w-3.5 h-3.5" /> Add personal note to this day
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        /* ── Change Summary Panel ─────────────────────────────────────── */
+        const ChangeSummary = () => (
+            <div className="card rounded-2xl p-5 mb-6 fade-in" style={{ animationDelay: '0.05s' }}>
+                <p className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                    <Icon d={I.refresh} className="w-4 h-4 text-indigo-400" />
+                    What Changed in This Update
+                </p>
+                <div className="grid grid-cols-3 gap-4">
+                    {[
+                        {
+                            icon: I.swap, color: '#6366f1', title: 'Day 2 Replaced',
+                            desc: 'Konark & Marine Drive → Indoor Heritage Day (AI Recommendation Adopted)'
+                        },
+                        {
+                            icon: I.calendar, color: '#f59e0b', title: 'Konark Rescheduled',
+                            desc: 'Konark Temple visit moved to Day 3 so no attraction is missed'
+                        },
+                        {
+                            icon: I.bell, color: '#22c55e', title: 'Notifications Sent',
+                            desc: 'Hotel, transport & 2 attraction bookings auto-updated via SMS & App'
+                        },
+                    ].map(({ icon, color, title, desc }, i) => (
+                        <div key={i} className="p-4 rounded-xl"
+                            style={{ background: color + '08', border: `1px solid ${color}25` }}>
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
+                                style={{ background: color + '20' }}>
+                                <Icon d={icon} className="w-4 h-4" style={{ color }} />
+                            </div>
+                            <p className="text-white text-sm font-semibold mb-1">{title}</p>
+                            <p className="text-[11px] text-slate-400 leading-relaxed">{desc}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+
+        /* ── Cost Comparison ─────────────────────────────────────────── */
+        const CostComparison = () => (
+            <div className="card rounded-2xl p-5 mb-6 fade-in" style={{ animationDelay: '0.1s' }}>
+                <p className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                    <Icon d={I.impact} className="w-4 h-4 text-emerald-400" /> Cost Comparison
+                </p>
+                <div className="grid grid-cols-2 gap-6">
+                    <div>
+                        <p className="text-[11px] text-slate-500 mb-2 font-semibold uppercase tracking-wider">Original Plan</p>
+                        {[
+                            ['Accommodation (4N)', '₹18,000', '#0ea5e9'],
+                            ['Day 2 — Konark Trip', '₹960', '#f43f5e'],
+                            ['Day 3 (Free Day)', '₹0', '#64748b'],
+                            ['Other Days', '₹4,850', '#6366f1'],
+                        ].map(([lbl, val, color], i) => (
+                            <div key={i} className="flex justify-between items-center py-1.5 border-b border-line last:border-0">
+                                <span className="text-xs text-slate-400">{lbl}</span>
+                                <span className="text-xs font-bold" style={{ color }}>{val}</span>
+                            </div>
+                        ))}
+                        <div className="flex justify-between items-center pt-2 mt-1">
+                            <span className="text-sm text-white font-bold">Total</span>
+                            <span className="text-base font-black text-white">₹23,810</span>
+                        </div>
+                    </div>
+                    <div>
+                        <p className="text-[11px] text-slate-500 mb-2 font-semibold uppercase tracking-wider">Updated Plan</p>
+                        {[
+                            ['Accommodation (4N)', '₹18,000', '#0ea5e9'],
+                            ['Day 2 — Indoor Heritage', '₹850', '#22c55e'],
+                            ['Day 3 — Konark (moved)', '₹760', '#f59e0b'],
+                            ['Other Days', '₹4,850', '#6366f1'],
+                        ].map(([lbl, val, color], i) => (
+                            <div key={i} className="flex justify-between items-center py-1.5 border-b border-line last:border-0">
+                                <span className="text-xs text-slate-400">{lbl}</span>
+                                <span className="text-xs font-bold" style={{ color }}>{val}</span>
+                            </div>
+                        ))}
+                        <div className="flex justify-between items-center pt-2 mt-1">
+                            <span className="text-sm text-white font-bold">Total</span>
+                            <span className="text-base font-black text-emerald-400">₹24,460</span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-1.5 text-emerald-400 text-xs font-semibold">
+                            <Icon d={I.check} className="w-3.5 h-3.5" />
+                            +₹650 for rescheduled Konark — zero missed attractions
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+
+        /* ── Main ─────────────────────────────────────────────────────── */
+        const UpdateItinerary = () => {
+            const [expandedDay, setExpandedDay] = useState('d2');
+            const [saved, setSaved] = useState(false);
+            const [days] = useState(INITIAL_DAYS);
+
+            const handleSave = () => {
+                setSaved(true);
+                setTimeout(() => setSaved(false), 3000);
+            };
+
+            return (
+                <div className="flex min-h-screen">
+                    <Sidebar />
+                    <main className="flex-1 ml-60 p-6 min-h-screen">
+
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-6 fade-in">
+                            <div>
+                                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                                    <span className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                                        <Icon d={I.edit} className="w-5 h-5 text-indigo-400" />
+                                    </span>
+                                    Updated Itinerary 📋
+                                </h1>
+                                <p className="text-slate-400 text-sm mt-1">
+                                    Trip for <span className="text-white font-medium">{TRIP_META.tourist}</span> — {TRIP_META.destination} &nbsp;·&nbsp;
+                                    {TRIP_META.dates} &nbsp;·&nbsp;
+                                    <span className="text-indigo-300">Last updated: {TRIP_META.lastUpdated}</span>
+                                </p>
+                            </div>
+                            <div className="flex gap-3">
+                                <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-line text-slate-300 hover:text-white hover:border-slate-500 transition-all">
+                                    <Icon d={I.download} className="w-4 h-4" /> Export PDF
+                                </button>
+                                <button onClick={handleSave}
+                                    className="save-btn flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white">
+                                    {saved
+                                        ? <><Icon d={I.check} className="w-4 h-4 check-pop" /> Saved!</>
+                                        : <><Icon d={I.save} className="w-4 h-4" /> Save Changes</>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Trip meta bar */}
+                        <div className="flex gap-3 flex-wrap mb-6 fade-in" style={{ animationDelay: '0.03s' }}>
+                            <StatCard icon="users"    label="Tourist ID"      value={TRIP_META.id}        color="#a855f7" />
+                            <StatCard icon="calendar" label="Duration"        value={TRIP_META.duration}  color="#0ea5e9" />
+                            <StatCard icon="users"    label="Travellers"      value={TRIP_META.travellers + ' Adults'} color="#6366f1" />
+                            <StatCard icon="swap"     label="Alt Adopted"     value={TRIP_META.adoptedAlt} color="#22c55e" />
+                            <StatCard icon="shield"   label="Risk Status"     value="Resolved"            color="#22c55e" />
+                        </div>
+
+                        {/* Change summary */}
+                        <ChangeSummary />
+
+                        {/* Cost comparison */}
+                        <CostComparison />
+
+                        {/* Day-by-day itinerary */}
+                        <div className="mb-3 flex items-center justify-between fade-in" style={{ animationDelay: '0.12s' }}>
+                            <p className="text-sm font-semibold text-white">Day-by-Day Itinerary</p>
+                            <div className="flex gap-2 text-[11px]">
+                                {[['Completed','#22c55e'],['Updated','#6366f1'],['Rescheduled','#f59e0b'],['Confirmed','#22c55e']].map(([lbl,col],i)=>(
+                                    <span key={i} className="flex items-center gap-1 text-slate-400">
+                                        <span className="w-2 h-2 rounded-full" style={{ background: col }} /> {lbl}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="space-y-4 fade-in" style={{ animationDelay: '0.15s' }}>
+                            {days.map(day => (
+                                <DayCard
+                                    key={day.id}
+                                    day={day}
+                                    expanded={expandedDay === day.id}
+                                    onToggle={() => setExpandedDay(expandedDay === day.id ? null : day.id)}
+                                    saved={saved}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Bottom action row */}
+                        <div className="mt-6 card rounded-2xl p-5 flex items-center justify-between fade-in" style={{ animationDelay: '0.2s' }}>
+                            <div>
+                                <p className="text-white font-semibold text-sm">All changes reviewed & confirmed</p>
+                                <p className="text-slate-400 text-xs mt-1">
+                                    Hotel & transport bookings auto-updated · 1,156 other tourists notified
+                                </p>
+                            </div>
+                            <div className="flex gap-3">
+                                <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-line text-slate-300 hover:text-white transition-all">
+                                    <Icon d={I.refresh} className="w-4 h-4 text-amber-400" /> Request Further Changes
+                                </button>
+                                <button className="save-btn flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white">
+                                    <Icon d={I.check} className="w-4 h-4" /> Confirm Updated Itinerary
+                                </button>
+                            </div>
+                        </div>
+
+                    </main>
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<UpdateItinerary />);
+    </script>
+</body>
+
+</html>
