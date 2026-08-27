@@ -95,6 +95,8 @@ def seed() -> None:
             ),
             city="Puri",
             state="Odisha",
+            latitude=19.8135,
+            longitude=85.8312,
         )
 
         konark = Destination(
@@ -105,6 +107,8 @@ def seed() -> None:
             ),
             city="Konark",
             state="Odisha",
+            latitude=19.8876,
+            longitude=86.0945,
         )
 
         bhubaneswar = Destination(
@@ -115,6 +119,8 @@ def seed() -> None:
             ),
             city="Bhubaneswar",
             state="Odisha",
+            latitude=20.2961,
+            longitude=85.8245,
         )
 
         db.add_all([puri, konark, bhubaneswar])
@@ -125,6 +131,8 @@ def seed() -> None:
             Attraction(
                 destination_id=puri.id,
                 name="Shree Jagannath Temple",
+                latitude=19.8048,
+                longitude=85.818,
                 description=(
                     "12th-century temple and the centre of Puri's pilgrim "
                     "footfall."
@@ -135,6 +143,8 @@ def seed() -> None:
             Attraction(
                 destination_id=puri.id,
                 name="Puri Beach",
+                latitude=19.7983,
+                longitude=85.8248,
                 description="Wide golden beach along the Bay of Bengal.",
                 category="Beach",
                 status="open",
@@ -142,6 +152,8 @@ def seed() -> None:
             Attraction(
                 destination_id=puri.id,
                 name="Gundicha Temple",
+                latitude=19.8145,
+                longitude=85.8265,
                 description=(
                     "Destination temple of the Rath Yatra chariot procession."
                 ),
@@ -151,6 +163,8 @@ def seed() -> None:
             Attraction(
                 destination_id=puri.id,
                 name="Chilika Lake (Satapada)",
+                latitude=19.696,
+                longitude=85.452,
                 description=(
                     "Asia's largest brackish water lagoon, known for "
                     "Irrawaddy dolphins."
@@ -161,6 +175,8 @@ def seed() -> None:
             Attraction(
                 destination_id=konark.id,
                 name="Konark Sun Temple",
+                latitude=19.8876,
+                longitude=86.0945,
                 description=(
                     "UNESCO World Heritage Site shaped as the chariot of "
                     "the sun god Surya."
@@ -171,6 +187,8 @@ def seed() -> None:
             Attraction(
                 destination_id=konark.id,
                 name="Chandrabhaga Beach",
+                latitude=19.8695,
+                longitude=86.098,
                 description=(
                     "Quiet beach three kilometres from the Sun Temple."
                 ),
@@ -180,6 +198,8 @@ def seed() -> None:
             Attraction(
                 destination_id=bhubaneswar.id,
                 name="Lingaraj Temple",
+                latitude=20.238,
+                longitude=85.8345,
                 description="11th-century temple, the largest in Bhubaneswar.",
                 category="Temple",
                 status="open",
@@ -187,6 +207,8 @@ def seed() -> None:
             Attraction(
                 destination_id=bhubaneswar.id,
                 name="Udayagiri and Khandagiri Caves",
+                latitude=20.261,
+                longitude=85.786,
                 description=(
                     "Rock-cut Jain caves dating to the 2nd century BCE."
                 ),
@@ -196,6 +218,8 @@ def seed() -> None:
             Attraction(
                 destination_id=bhubaneswar.id,
                 name="Nandankanan Zoological Park",
+                latitude=20.396,
+                longitude=85.82,
                 description=(
                     "Zoo and botanical garden with a white tiger safari."
                 ),
