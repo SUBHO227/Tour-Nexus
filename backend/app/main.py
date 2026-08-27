@@ -3,6 +3,7 @@ from app.api.routes.destinations import router as destinations_router
 from app.api.routes.attractions import router as attractions_router
 from app.api.routes.crowd import router as crowd_router
 from app.api.routes.disruptions import router as disruptions_router
+from app.api.routes.dependencies import router as dependencies_router
 
 app = FastAPI(
     title="TourNexus API",
@@ -27,6 +28,11 @@ app.include_router(
 
 app.include_router(
     disruptions_router,
+    prefix="/api",
+)
+
+app.include_router(
+    dependencies_router,
     prefix="/api",
 )
 
