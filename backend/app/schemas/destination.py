@@ -7,6 +7,8 @@ class DestinationBase(BaseModel):
     city: str
     state: str | None = None
     country: str = "India"
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 class DestinationCreate(DestinationBase):

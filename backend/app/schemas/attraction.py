@@ -7,6 +7,8 @@ class AttractionBase(BaseModel):
     description: str | None = None
     category: str | None = None
     status: str = "open"
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 class AttractionCreate(AttractionBase):

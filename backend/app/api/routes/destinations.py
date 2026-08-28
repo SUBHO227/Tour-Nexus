@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -47,3 +47,21 @@ def create_destination(
     db.refresh(new_destination)
 
     return new_destination
+
+@router.get(
+    "/{destination_id}",
+    response_model=DestinationResponse,
+)
+def get_destination(
+    destination_id: int,
+    db: Session = Depends(get_db),
+):
+    destination = db.get(Destination, destination_id)
+
+    if destination is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Destination not found",
+        )
+
+    return destination

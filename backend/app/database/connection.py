@@ -7,15 +7,20 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 load_dotenv()
 
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+# PostgreSQL is the production database. When DATABASE_URL is not set we fall
+# back to a local SQLite file so the project can be cloned and demoed without
+# installing PostgreSQL first.
+DEFAULT_SQLITE_URL = "sqlite:///./tournexus.db"
 
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL is not set")
+DATABASE_URL = os.getenv("DATABASE_URL") or DEFAULT_SQLITE_URL
+
+IS_SQLITE = DATABASE_URL.startswith("sqlite")
 
 
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
+    connect_args={"check_same_thread": False} if IS_SQLITE else {},
 )
 
 
